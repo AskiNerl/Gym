@@ -1,0 +1,39 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Трекер тренировок</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<button class="settings-btn" onclick="toggleMenu()">⚙️</button>
+
+<div class="settings-menu" id="menu">
+  <h3>Настройки</h3>
+  <button onclick="toggleTheme()">🌙 / ☀️ Сменить тему</button>
+</div>
+
+<div class="container">
+
+  <h1>🏋️ Тренировки</h1>
+
+ 
+  <select id="exerciseSelect"></select>
+
+  <input type="text" id="newExercise" placeholder="Добавить своё упражнение">
+  <button class="add-btn" onclick="addExercise()">Добавить упражнение</button>
+
+
+  <input type="number" id="weight" placeholder="Вес (кг)">
+  <input type="number" id="sets" placeholder="Подходы">
+
+  <button class="main-btn" onclick="addWorkout()">Сохранить</button>
+
+  <ul id="list"></ul>
+
+</div>
+
+<script src="js/script.js"></script>
+</body>
+</html>

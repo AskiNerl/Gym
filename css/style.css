@@ -1,0 +1,111 @@
+﻿* {
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+  color: #111;
+  transition: 0.3s;
+}
+
+
+body.dark {
+  background: linear-gradient(135deg, #141e30, #243b55);
+  color: white;
+}
+
+
+.container {
+  max-width: 500px;
+  margin: 40px auto;
+  background: white;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+body.dark .container {
+  background: #1e1e1e;
+}
+
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+button:hover {
+  transform: scale(1.03);
+}
+
+.main-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.add-btn {
+  background: #ff9800;
+  color: white;
+}
+
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin-top: 20px;
+}
+
+li {
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.05);
+}
+
+body.dark li {
+  background: rgba(255,255,255,0.1);
+}
+
+
+.settings-btn {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  background: #000;
+  color: white;
+  border-radius: 50%;
+  width: 45px;
+  height: 45px;
+}
+
+.settings-menu {
+  position: fixed;
+  top: 70px;
+  right: 15px;
+  background: white;
+  padding: 15px;
+  border-radius: 15px;
+  display: none;
+}
+
+body.dark .settings-menu {
+  background: #1e1e1e;
+}
