@@ -92,4 +92,3 @@ function toggleMenu() {
 loadTheme();
 loadExercises();
 render();
-

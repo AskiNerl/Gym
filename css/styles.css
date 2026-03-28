@@ -1,0 +1,47 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #09052e;
+    text-align: center;
+            
+}
+h1,  h2 {
+    color: #ffffff;
+    text-align: center;
+    margin-top: 20px;
+}
+img {
+    width: 200px;
+    height: auto;
+
+}
+li {
+    color: #ffffff;
+    text-align: left;
+    margin: 10px 0;
+}
+.snowflake {
+    position: fixed;      
+    top: -10px;           
+    background: white;    
+    border-radius: 50%;   
+    pointer-events: none; 
+    z-index: 9999;        
+
+    animation-name: fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+
+@keyframes fall {
+    0% {
+        top: -10px;
+        transform: translateX(0);
+    }
+    100% {
+        top: 100vh;           
+        transform: translateX(30px); 
+    }
+}
