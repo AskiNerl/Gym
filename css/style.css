@@ -19,12 +19,11 @@ body.dark {
 
 .container {
   max-width: 500px;
-  margin: 40px auto;
-  background: white;
-  padding: 20px;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  width: 90%;
+  margin: 20px auto;
+  padding: 15px;
 }
+
 
 body.dark .container {
   background: #1e1e1e;
