@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Трекер тренировок</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -17,7 +18,18 @@
 <div class="container">
 
   <h1>🏋️ Тренировки</h1>
+<div class="calendar">
 
+  <div class="calendar-header">
+    <button class="calendar-nav" onclick="changeMonth(-1)" aria-label="Предыдущий месяц">&#8249;</button>
+    <span id="monthLabel"></span>
+    <button class="calendar-nav" onclick="changeMonth(1)" aria-label="Следующий месяц">&#8250;</button>
+  </div>
+
+  <div class="calendar-weekdays" id="calendarWeekdays"></div>
+  <div class="calendar-grid" id="calendarGrid"></div>
+
+</div>
  
   <select id="exerciseSelect"></select>
 
@@ -26,12 +38,29 @@
 
 
   <input type="number" id="weight" placeholder="Вес (кг)">
+  <div class="bodyweight-row" id="bodyweightRow" hidden>
+    <label class="bodyweight-label">
+      <input type="checkbox" id="bodyweightToggle">
+      Свой вес
+    </label>
+  </div>
   <input type="number" id="sets" placeholder="Подходы">
 
   <button class="main-btn" onclick="addWorkout()">Сохранить</button>
 
   <ul id="list"></ul>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</div>
+
+<div class="confirm-modal" id="confirmModal" hidden>
+  <div class="confirm-backdrop" id="confirmBackdrop"></div>
+  <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h3 id="confirmTitle">Удалить запись?</h3>
+    <p id="confirmText"></p>
+    <div class="confirm-actions">
+      <button type="button" class="confirm-cancel" id="confirmCancel">Отмена</button>
+      <button type="button" class="confirm-delete" id="confirmDelete">Удалить</button>
+    </div>
+  </div>
 </div>
 
 <script src="js/script.js"></script>

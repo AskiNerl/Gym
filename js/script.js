@@ -1,10 +1,119 @@
 ﻿let workouts = JSON.parse(localStorage.getItem("workouts")) || [];
 let exercises = JSON.parse(localStorage.getItem("exercises")) || [
-  "Жим лёжа",
-  "Бицепс",
-  "Присед"
+  "\u0416\u0438\u043c \u043b\u0451\u0436\u0430",
+  "\u0411\u0438\u0446\u0435\u043f\u0441",
+  "\u041f\u0440\u0438\u0441\u0435\u0434",
+  "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
 ];
 
+const bodyweightAllowedExercises = new Set([
+  "\u041f\u0440\u0438\u0441\u0435\u0434",
+  "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
+]);
+
+const SWIPE_DELETE_OFFSET = 82;
+let pendingDeleteIndex = null;
+
+function ensureRequiredExercises() {
+  let changed = false;
+  let required = ["\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"];
+
+  required.forEach(exercise => {
+    if (!exercises.includes(exercise)) {
+      exercises.push(exercise);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    localStorage.setItem("exercises", JSON.stringify(exercises));
+  }
+}
+
+function updateWeightMode() {
+  let exercise = document.getElementById("exerciseSelect").value;
+  let weightInput = document.getElementById("weight");
+  let bodyweightRow = document.getElementById("bodyweightRow");
+  let bodyweightToggle = document.getElementById("bodyweightToggle");
+  let canUseBodyweight = bodyweightAllowedExercises.has(exercise);
+
+  bodyweightRow.hidden = !canUseBodyweight;
+
+  if (!canUseBodyweight) {
+    bodyweightToggle.checked = false;
+  }
+
+  let useBodyweight = canUseBodyweight && bodyweightToggle.checked;
+  weightInput.disabled = useBodyweight;
+  weightInput.placeholder = useBodyweight ? "\u0421\u0432\u043e\u0439 \u0432\u0435\u0441" : "\u0412\u0435\u0441 (\u043a\u0433)";
+  if (useBodyweight) {
+    weightInput.value = "";
+  }
+}
+
+function bindExerciseControls() {
+  let exerciseSelect = document.getElementById("exerciseSelect");
+  let bodyweightToggle = document.getElementById("bodyweightToggle");
+
+  exerciseSelect.addEventListener("change", updateWeightMode);
+  bodyweightToggle.addEventListener("change", updateWeightMode);
+}
+
+function getTodayISO() {
+  let today = new Date();
+  let year = today.getFullYear();
+  let month = String(today.getMonth() + 1).padStart(2, "0");
+  let day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateString(value) {
+  if (typeof value !== "string") return "";
+
+  let date = value.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
+  }
+
+  let ruDateMatch = date.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!ruDateMatch) {
+    return "";
+  }
+
+  let day = String(ruDateMatch[1]).padStart(2, "0");
+  let month = String(ruDateMatch[2]).padStart(2, "0");
+  let year = ruDateMatch[3];
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForDisplay(value) {
+  let isoDate = normalizeDateString(value);
+  if (!isoDate) return value;
+
+  let [year, month, day] = isoDate.split("-");
+  return `${day}.${month}.${year}`;
+}
+
+function normalizeStoredWorkouts() {
+  let changed = false;
+
+  workouts = workouts.map(workout => {
+    let normalizedDate = normalizeDateString(workout.date);
+
+    if (!normalizedDate || normalizedDate === workout.date) {
+      return workout;
+    }
+
+    changed = true;
+    return { ...workout, date: normalizedDate };
+  });
+
+  if (changed) {
+    localStorage.setItem("workouts", JSON.stringify(workouts));
+  }
+}
 
 function loadExercises() {
   let select = document.getElementById("exerciseSelect");
@@ -29,46 +138,266 @@ function addExercise() {
 
   input.value = "";
   loadExercises();
+  updateWeightMode();
 }
-
 
 function addWorkout() {
   let exercise = document.getElementById("exerciseSelect").value;
- let weight = parseFloat(document.getElementById("weight").value);
-let sets = parseInt(document.getElementById("sets").value);
+  let bodyweightToggle = document.getElementById("bodyweightToggle");
+  let useBodyweight = bodyweightAllowedExercises.has(exercise) && bodyweightToggle.checked;
+  let weight = parseFloat(document.getElementById("weight").value);
+  let sets = parseInt(document.getElementById("sets").value, 10);
+  let isWeightInvalid = Number.isNaN(weight);
 
-if (weight < 0 || sets < 0) {
-  alert("Вес и подходы не могут быть меньше 0");
-  return;
-}
-  if (!weight || !sets) return;
+  if (Number.isNaN(sets)) return;
+  if (!useBodyweight && isWeightInvalid) return;
+
+  if (weight < 0 || sets < 0) {
+    alert("\u0412\u0435\u0441 \u0438 \u043f\u043e\u0434\u0445\u043e\u0434\u044b \u043d\u0435 \u043c\u043e\u0433\u0443\u0442 \u0431\u044b\u0442\u044c \u043c\u0435\u043d\u044c\u0448\u0435 0");
+    return;
+  }
+
+  if (!useBodyweight && weight <= 0) {
+    alert("\u0412\u0435\u0441 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 0 \u043a\u0433");
+    return;
+  }
+
+  if (sets === 0) {
+    alert("\u041a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u043f\u043e\u0434\u0445\u043e\u0434\u043e\u0432 \u0434\u043e\u043b\u0436\u043d\u043e \u0431\u044b\u0442\u044c \u0431\u043e\u043b\u044c\u0448\u0435 0");
+    return;
+  }
 
   let workout = {
     exercise,
-    weight,
+    weight: useBodyweight ? null : weight,
+    bodyweight: useBodyweight,
     sets,
-    date: new Date().toLocaleDateString()
+    date: selectedDate
   };
 
   workouts.push(workout);
   localStorage.setItem("workouts", JSON.stringify(workouts));
 
   render();
+  renderCalendar();
 }
 
+function formatWorkoutWeight(workout) {
+  let legacyBodyweight = bodyweightAllowedExercises.has(workout.exercise) && Number(workout.weight) === 0;
+  let isBodyweightWorkout = workout.bodyweight === true || legacyBodyweight;
+
+  return isBodyweightWorkout ? "\u0441\u0432\u043e\u0439 \u0432\u0435\u0441" : `${workout.weight} \u043a\u0433`;
+}
+
+function openDeleteModal(index) {
+  let workout = workouts[index];
+  if (!workout) return;
+
+  pendingDeleteIndex = index;
+
+  let modal = document.getElementById("confirmModal");
+  let text = document.getElementById("confirmText");
+  let dateForDisplay = formatDateForDisplay(workout.date);
+  let weightLabel = formatWorkoutWeight(workout);
+  text.textContent = `${dateForDisplay} - ${workout.exercise}: ${weightLabel} (${workout.sets} \u043f\u043e\u0434\u0445\u043e\u0434\u043e\u0432)`;
+
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeDeleteModal() {
+  pendingDeleteIndex = null;
+  document.getElementById("confirmModal").hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+function confirmDeleteWorkout() {
+  if (pendingDeleteIndex === null) return;
+  if (!workouts[pendingDeleteIndex]) {
+    closeDeleteModal();
+    return;
+  }
+
+  workouts.splice(pendingDeleteIndex, 1);
+  localStorage.setItem("workouts", JSON.stringify(workouts));
+  closeDeleteModal();
+
+  render();
+  renderCalendar();
+}
+
+function bindDeleteModal() {
+  document.getElementById("confirmCancel").addEventListener("click", closeDeleteModal);
+  document.getElementById("confirmBackdrop").addEventListener("click", closeDeleteModal);
+  document.getElementById("confirmDelete").addEventListener("click", confirmDeleteWorkout);
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !document.getElementById("confirmModal").hidden) {
+      closeDeleteModal();
+    }
+  });
+}
+
+function setSwipeState(item, open) {
+  let content = item.querySelector(".workout-content");
+  if (!content) return;
+
+  content.style.transition = "transform 0.22s ease";
+  content.style.transform = open ? `translateX(-${SWIPE_DELETE_OFFSET}px)` : "translateX(0)";
+  item.classList.toggle("swiped", open);
+}
+
+function closeAllSwipedItems(exceptItem) {
+  document.querySelectorAll(".workout-item.swiped").forEach(item => {
+    if (exceptItem && item === exceptItem) return;
+    setSwipeState(item, false);
+  });
+}
+
+function bindSwipeForItem(item) {
+  let content = item.querySelector(".workout-content");
+  if (!content) return;
+
+  let startX = 0;
+  let startY = 0;
+  let startOffset = 0;
+  let currentOffset = 0;
+  let tracking = false;
+  let horizontalSwipe = false;
+
+  item.addEventListener("touchstart", event => {
+    if (window.innerWidth > 560 || event.touches.length !== 1) return;
+
+    closeAllSwipedItems(item);
+    tracking = true;
+    horizontalSwipe = false;
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+    startOffset = item.classList.contains("swiped") ? SWIPE_DELETE_OFFSET : 0;
+    currentOffset = startOffset;
+    content.style.transition = "none";
+  }, { passive: true });
+
+  item.addEventListener("touchmove", event => {
+    if (!tracking || window.innerWidth > 560) return;
+
+    let touch = event.touches[0];
+    let dx = touch.clientX - startX;
+    let dy = touch.clientY - startY;
+
+    if (!horizontalSwipe) {
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
+        tracking = false;
+        content.style.transition = "transform 0.22s ease";
+        content.style.transform = `translateX(-${startOffset}px)`;
+        return;
+      }
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        horizontalSwipe = true;
+      }
+    }
+
+    if (!horizontalSwipe) return;
+
+    event.preventDefault();
+    currentOffset = Math.max(0, Math.min(SWIPE_DELETE_OFFSET, startOffset - dx));
+    content.style.transform = `translateX(-${currentOffset}px)`;
+  }, { passive: false });
+
+  function finishSwipe() {
+    if (!tracking) return;
+    tracking = false;
+    setSwipeState(item, currentOffset > SWIPE_DELETE_OFFSET / 2);
+  }
+
+  item.addEventListener("touchend", finishSwipe);
+  item.addEventListener("touchcancel", finishSwipe);
+
+  content.addEventListener("click", event => {
+    if (window.innerWidth > 560) return;
+    if (!item.classList.contains("swiped")) return;
+
+    setSwipeState(item, false);
+    event.preventDefault();
+    event.stopPropagation();
+  });
+}
+
+function requestDeleteWorkout(index) {
+  closeAllSwipedItems();
+  openDeleteModal(index);
+}
 
 function render() {
   let list = document.getElementById("list");
   list.innerHTML = "";
 
-  workouts.slice().reverse().forEach(w => {
+  let workoutsForDate = workouts
+    .map((workout, index) => ({ workout, index }))
+    .filter(item => normalizeDateString(item.workout.date) === selectedDate)
+    .slice()
+    .reverse();
+
+  if (!workoutsForDate.length) {
+    list.style.display = "none";
+    return;
+  }
+
+  list.style.display = "block";
+
+  workoutsForDate.forEach(item => {
+    let w = item.workout;
     let li = document.createElement("li");
-    li.textContent = `${w.date} — ${w.exercise}: ${w.weight} кг (${w.sets} подходов)`;
+    li.className = "workout-item";
+
+    let swipeActions = document.createElement("div");
+    swipeActions.className = "workout-swipe-actions";
+
+    let swipeDeleteButton = document.createElement("button");
+    swipeDeleteButton.type = "button";
+    swipeDeleteButton.className = "delete-btn delete-btn-swipe";
+    swipeDeleteButton.textContent = "\u00d7";
+    swipeDeleteButton.title = "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c";
+    swipeDeleteButton.setAttribute("aria-label", "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c");
+    swipeDeleteButton.onclick = event => {
+      event.stopPropagation();
+      requestDeleteWorkout(item.index);
+    };
+    swipeActions.appendChild(swipeDeleteButton);
+
+    let content = document.createElement("div");
+    content.className = "workout-content";
+
+    let info = document.createElement("div");
+    info.className = "workout-info";
+    let dateForDisplay = formatDateForDisplay(w.date);
+    let weightLabel = formatWorkoutWeight(w);
+    info.textContent = `${dateForDisplay} - ${w.exercise}: ${weightLabel} (${w.sets} \u043f\u043e\u0434\u0445\u043e\u0434\u043e\u0432)`;
+
+    let deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "delete-btn delete-btn-inline";
+    deleteButton.textContent = "\u00d7";
+    deleteButton.title = "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c";
+    deleteButton.setAttribute("aria-label", "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c");
+    deleteButton.onclick = event => {
+      event.stopPropagation();
+      requestDeleteWorkout(item.index);
+    };
+
+    content.appendChild(info);
+    content.appendChild(deleteButton);
+
+    li.appendChild(swipeActions);
+    li.appendChild(content);
     list.appendChild(li);
+
+    bindSwipeForItem(li);
   });
 }
 
-// ТЕМА
+// \u0422\u0415\u041c\u0410
 function toggleTheme() {
   document.body.classList.toggle("dark");
   localStorage.setItem("theme",
@@ -82,13 +411,97 @@ function loadTheme() {
   }
 }
 
-
 function toggleMenu() {
   let menu = document.getElementById("menu");
   menu.style.display = menu.style.display === "block" ? "none" : "block";
 }
 
+let currentDate = new Date();
+let selectedDate = getTodayISO();
 
+normalizeStoredWorkouts();
+ensureRequiredExercises();
 loadTheme();
 loadExercises();
+bindExerciseControls();
+bindDeleteModal();
+updateWeightMode();
 render();
+
+// \u041c\u0415\u0421\u042f\u0426\u042b
+const months = [
+  "\u042f\u043d\u0432\u0430\u0440\u044c", "\u0424\u0435\u0432\u0440\u0430\u043b\u044c", "\u041c\u0430\u0440\u0442", "\u0410\u043f\u0440\u0435\u043b\u044c", "\u041c\u0430\u0439", "\u0418\u044e\u043d\u044c",
+  "\u0418\u044e\u043b\u044c", "\u0410\u0432\u0433\u0443\u0441\u0442", "\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c", "\u041e\u043a\u0442\u044f\u0431\u0440\u044c", "\u041d\u043e\u044f\u0431\u0440\u044c", "\u0414\u0435\u043a\u0430\u0431\u0440\u044c"
+];
+
+const weekdays = ["\u041f\u043d", "\u0412\u0442", "\u0421\u0440", "\u0427\u0442", "\u041f\u0442", "\u0421\u0431", "\u0412\u0441"];
+
+function renderWeekdays() {
+  let weekdaysRow = document.getElementById("calendarWeekdays");
+  weekdaysRow.innerHTML = "";
+
+  weekdays.forEach(dayName => {
+    let day = document.createElement("div");
+    day.className = "weekday";
+    day.textContent = dayName;
+    weekdaysRow.appendChild(day);
+  });
+}
+
+// \u041f\u0415\u0420\u0415\u041a\u041b\u042e\u0427\u0415\u041d\u0418\u0415 \u041c\u0415\u0421\u042f\u0426\u0410
+function changeMonth(step) {
+  currentDate.setMonth(currentDate.getMonth() + step);
+  renderCalendar();
+}
+
+// \u041e\u0422\u0420\u0418\u0421\u041e\u0412\u041a\u0410 \u041a\u0410\u041b\u0415\u041d\u0414\u0410\u0420\u042f
+function renderCalendar() {
+  let grid = document.getElementById("calendarGrid");
+  let label = document.getElementById("monthLabel");
+
+  grid.innerHTML = "";
+
+  let year = currentDate.getFullYear();
+  let month = currentDate.getMonth();
+  let today = getTodayISO();
+
+  label.textContent = `${months[month]} ${year}`;
+
+  let firstDay = new Date(year, month, 1).getDay();
+  let daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // \u0418\u0441\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u043c, \u0447\u0442\u043e\u0431\u044b \u043d\u0435\u0434\u0435\u043b\u044f \u043d\u0430\u0447\u0438\u043d\u0430\u043b\u0430\u0441\u044c \u0441 \u043f\u043e\u043d\u0435\u0434\u0435\u043b\u044c\u043d\u0438\u043a\u0430
+  let start = firstDay === 0 ? 6 : firstDay - 1;
+
+  for (let i = 0; i < start; i++) {
+    let emptyDay = document.createElement("div");
+    emptyDay.className = "day empty";
+    grid.appendChild(emptyDay);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    let dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+    let hasWorkout = workouts.some(w => normalizeDateString(w.date) === dateStr);
+
+    let className = "day";
+    if (dateStr === selectedDate) className += " active";
+    if (dateStr === today) className += " today";
+    if (hasWorkout) className += " has-workout";
+
+    let div = document.createElement("div");
+    div.className = className;
+    div.textContent = d;
+
+    div.onclick = () => {
+      selectedDate = dateStr;
+      render();
+      renderCalendar();
+    };
+
+    grid.appendChild(div);
+  }
+}
+
+renderWeekdays();
+renderCalendar();

@@ -40,6 +40,32 @@ input, select {
   font-size: 14px;
 }
 
+.bodyweight-row {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+body.dark .bodyweight-row {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bodyweight-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.bodyweight-label input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #4CAF50;
+}
+
 button {
   width: 100%;
   padding: 10px;
@@ -73,14 +99,166 @@ ul {
 }
 
 li {
-  padding: 12px;
   margin-top: 10px;
+  padding: 0;
   border-radius: 12px;
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 body.dark li {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.workout-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.workout-content {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  transition: transform 0.22s ease;
+}
+
+.workout-swipe-actions {
+  display: none;
+  position: absolute;
+  inset: 0;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 10px;
+  background: linear-gradient(90deg, rgba(234, 84, 85, 0.08), rgba(234, 84, 85, 0.24));
+}
+
+.workout-info {
+  flex: 1;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.delete-btn {
+  width: 30px;
+  height: 30px;
+  margin-top: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: #ea5455;
+  color: white;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.delete-btn:hover {
+  transform: none;
+  filter: brightness(0.95);
+}
+
+.delete-btn-swipe {
+  display: none;
+}
+
+body.dark .delete-btn {
+  background: #d24a4b;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.confirm-modal[hidden] {
+  display: none;
+}
+
+.confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-dialog {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #111;
+  box-shadow: 0 16px 34px rgba(10, 18, 30, 0.28);
+}
+
+body.dark .confirm-dialog {
+  background: #1f2a37;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.confirm-dialog h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.confirm-dialog p {
+  margin: 12px 0 0;
+  line-height: 1.4;
+  color: rgba(17, 17, 17, 0.78);
+}
+
+body.dark .confirm-dialog p {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.confirm-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirm-actions button {
+  width: auto;
+  margin-top: 0;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.confirm-actions button:hover {
+  transform: none;
+}
+
+.confirm-cancel {
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+}
+
+body.dark .confirm-cancel {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.confirm-delete {
+  background: #ea5455;
+  color: #fff;
+}
+
+body.dark .confirm-delete {
+  background: #d24a4b;
 }
 
 
@@ -107,4 +285,248 @@ body.dark li {
 
 body.dark .settings-menu {
   background: #1e1e1e;
+}
+/* КАЛЕНДАРЬ */
+.calendar {
+  margin-bottom: 20px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 14px 30px rgba(30, 55, 90, 0.14);
+}
+
+body.dark .calendar {
+  background: rgba(17, 25, 40, 0.58);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.32);
+}
+
+/* HEADER */
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+#monthLabel {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.calendar-nav {
+  width: 36px;
+  height: 36px;
+  margin-top: 0;
+  padding: 0;
+  border-radius: 10px;
+  background: rgba(25, 35, 52, 0.08);
+  color: inherit;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+body.dark .calendar-nav {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.calendar-nav:hover {
+  transform: translateY(-1px);
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(17, 17, 17, 0.55);
+}
+
+body.dark .weekday {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* СЕТКА */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+/* ДЕНЬ */
+.day {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  cursor: pointer;
+  position: relative;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+body.dark .day {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.day:hover {
+  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.09);
+}
+
+body.dark .day:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.day.empty {
+  cursor: default;
+  border: none;
+  background: transparent;
+}
+
+.day.empty:hover {
+  transform: none;
+  background: transparent;
+}
+
+.day.today {
+  border-color: rgba(76, 175, 80, 0.45);
+}
+
+/* АКТИВНЫЙ ДЕНЬ */
+.day.active {
+  background: #4CAF50;
+  color: white;
+  border-color: #4CAF50;
+  box-shadow: 0 8px 16px rgba(76, 175, 80, 0.34);
+}
+
+/* ТОЧКА */
+.day::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: red;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+}
+
+/* ЕСЛИ ЕСТЬ ТРЕНИРОВКА */
+.day.has-workout::after {
+  display: block;
+}
+
+.day.active::after {
+  background: white;
+}
+
+@media (max-width: 560px) {
+  .container {
+    width: 94%;
+    margin: 12px auto 16px;
+    padding: 12px;
+  }
+
+  input,
+  select,
+  button {
+    font-size: 16px;
+  }
+
+  .settings-btn {
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .settings-menu {
+    top: 58px;
+    left: 10px;
+    right: 10px;
+  }
+
+  .bodyweight-label {
+    font-size: 15px;
+  }
+
+  .workout-swipe-actions {
+    display: flex;
+  }
+
+  .delete-btn-inline {
+    display: none;
+  }
+
+  .delete-btn-swipe {
+    display: flex;
+    width: 34px;
+    height: 34px;
+  }
+
+  .workout-item.swiped .workout-content {
+    transform: translateX(-82px);
+  }
+
+  .confirm-dialog {
+    width: 100%;
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .confirm-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .confirm-actions button {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  .calendar {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .calendar-grid,
+  .calendar-weekdays {
+    gap: 4px;
+  }
+
+  .day {
+    min-height: 34px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .calendar-nav {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  #monthLabel {
+    font-size: 15px;
+  }
 }
