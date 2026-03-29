@@ -3,11 +3,20 @@
   font-family: Arial, sans-serif;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   background: linear-gradient(135deg, #74ebd5, #ACB6E5);
   color: #111;
   transition: 0.3s;
+  min-height: 100dvh;
 }
 
 
@@ -251,19 +260,28 @@ body.dark .confirm-delete {
   position: fixed;
   top: 15px;
   right: 15px;
-  z-index: 900;
+  z-index: 2001;
   background: #000;
   color: white;
   border-radius: 50%;
   width: 45px;
   height: 45px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  font-family: "Segoe UI Symbol", "Apple Color Emoji", Arial, sans-serif;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .settings-menu {
   position: fixed;
   top: 70px;
   right: 15px;
-  z-index: 901;
+  z-index: 2000;
   background: white;
   padding: 15px;
   border-radius: 15px;

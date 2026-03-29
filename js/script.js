@@ -237,6 +237,17 @@ function bindDeleteModal() {
   });
 }
 
+function bindSettingsControls() {
+  let settingsBtn = document.querySelector(".settings-btn");
+  if (!settingsBtn) return;
+
+  settingsBtn.removeAttribute("onclick");
+  settingsBtn.addEventListener("click", event => {
+    event.preventDefault();
+    toggleMenu();
+  });
+}
+
 function requestDeleteWorkout(index) {
   openDeleteModal(index);
 }
@@ -319,6 +330,7 @@ loadTheme();
 loadExercises();
 bindExerciseControls();
 bindDeleteModal();
+bindSettingsControls();
 updateWeightMode();
 render();
 
