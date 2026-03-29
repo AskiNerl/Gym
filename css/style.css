@@ -120,17 +120,6 @@ body.dark li {
   justify-content: space-between;
   gap: 10px;
   padding: 12px;
-  transition: transform 0.22s ease;
-}
-
-.workout-swipe-actions {
-  display: none;
-  position: absolute;
-  inset: 0;
-  justify-content: flex-end;
-  align-items: center;
-  padding-right: 10px;
-  background: linear-gradient(90deg, rgba(234, 84, 85, 0.08), rgba(234, 84, 85, 0.24));
 }
 
 .workout-info {
@@ -158,10 +147,6 @@ body.dark li {
 .delete-btn:hover {
   transform: none;
   filter: brightness(0.95);
-}
-
-.delete-btn-swipe {
-  display: none;
 }
 
 body.dark .delete-btn {
@@ -266,6 +251,7 @@ body.dark .confirm-delete {
   position: fixed;
   top: 15px;
   right: 15px;
+  z-index: 900;
   background: #000;
   color: white;
   border-radius: 50%;
@@ -277,6 +263,7 @@ body.dark .confirm-delete {
   position: fixed;
   top: 70px;
   right: 15px;
+  z-index: 901;
   background: white;
   padding: 15px;
   border-radius: 15px;
@@ -468,24 +455,6 @@ body.dark .day:hover {
 
   .bodyweight-label {
     font-size: 15px;
-  }
-
-  .workout-swipe-actions {
-    display: flex;
-  }
-
-  .delete-btn-inline {
-    display: none;
-  }
-
-  .delete-btn-swipe {
-    display: flex;
-    width: 34px;
-    height: 34px;
-  }
-
-  .workout-item.swiped .workout-content {
-    transform: translateX(-82px);
   }
 
   .confirm-dialog {

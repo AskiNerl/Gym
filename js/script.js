@@ -11,7 +11,6 @@ const bodyweightAllowedExercises = new Set([
   "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
 ]);
 
-const SWIPE_DELETE_OFFSET = 82;
 let pendingDeleteIndex = null;
 
 function ensureRequiredExercises() {
@@ -238,94 +237,7 @@ function bindDeleteModal() {
   });
 }
 
-function setSwipeState(item, open) {
-  let content = item.querySelector(".workout-content");
-  if (!content) return;
-
-  content.style.transition = "transform 0.22s ease";
-  content.style.transform = open ? `translateX(-${SWIPE_DELETE_OFFSET}px)` : "translateX(0)";
-  item.classList.toggle("swiped", open);
-}
-
-function closeAllSwipedItems(exceptItem) {
-  document.querySelectorAll(".workout-item.swiped").forEach(item => {
-    if (exceptItem && item === exceptItem) return;
-    setSwipeState(item, false);
-  });
-}
-
-function bindSwipeForItem(item) {
-  let content = item.querySelector(".workout-content");
-  if (!content) return;
-
-  let startX = 0;
-  let startY = 0;
-  let startOffset = 0;
-  let currentOffset = 0;
-  let tracking = false;
-  let horizontalSwipe = false;
-
-  item.addEventListener("touchstart", event => {
-    if (window.innerWidth > 560 || event.touches.length !== 1) return;
-
-    closeAllSwipedItems(item);
-    tracking = true;
-    horizontalSwipe = false;
-    startX = event.touches[0].clientX;
-    startY = event.touches[0].clientY;
-    startOffset = item.classList.contains("swiped") ? SWIPE_DELETE_OFFSET : 0;
-    currentOffset = startOffset;
-    content.style.transition = "none";
-  }, { passive: true });
-
-  item.addEventListener("touchmove", event => {
-    if (!tracking || window.innerWidth > 560) return;
-
-    let touch = event.touches[0];
-    let dx = touch.clientX - startX;
-    let dy = touch.clientY - startY;
-
-    if (!horizontalSwipe) {
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) {
-        tracking = false;
-        content.style.transition = "transform 0.22s ease";
-        content.style.transform = `translateX(-${startOffset}px)`;
-        return;
-      }
-
-      if (Math.abs(dx) > Math.abs(dy)) {
-        horizontalSwipe = true;
-      }
-    }
-
-    if (!horizontalSwipe) return;
-
-    event.preventDefault();
-    currentOffset = Math.max(0, Math.min(SWIPE_DELETE_OFFSET, startOffset - dx));
-    content.style.transform = `translateX(-${currentOffset}px)`;
-  }, { passive: false });
-
-  function finishSwipe() {
-    if (!tracking) return;
-    tracking = false;
-    setSwipeState(item, currentOffset > SWIPE_DELETE_OFFSET / 2);
-  }
-
-  item.addEventListener("touchend", finishSwipe);
-  item.addEventListener("touchcancel", finishSwipe);
-
-  content.addEventListener("click", event => {
-    if (window.innerWidth > 560) return;
-    if (!item.classList.contains("swiped")) return;
-
-    setSwipeState(item, false);
-    event.preventDefault();
-    event.stopPropagation();
-  });
-}
-
 function requestDeleteWorkout(index) {
-  closeAllSwipedItems();
   openDeleteModal(index);
 }
 
@@ -351,21 +263,6 @@ function render() {
     let li = document.createElement("li");
     li.className = "workout-item";
 
-    let swipeActions = document.createElement("div");
-    swipeActions.className = "workout-swipe-actions";
-
-    let swipeDeleteButton = document.createElement("button");
-    swipeDeleteButton.type = "button";
-    swipeDeleteButton.className = "delete-btn delete-btn-swipe";
-    swipeDeleteButton.textContent = "\u00d7";
-    swipeDeleteButton.title = "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c";
-    swipeDeleteButton.setAttribute("aria-label", "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c");
-    swipeDeleteButton.onclick = event => {
-      event.stopPropagation();
-      requestDeleteWorkout(item.index);
-    };
-    swipeActions.appendChild(swipeDeleteButton);
-
     let content = document.createElement("div");
     content.className = "workout-content";
 
@@ -377,7 +274,7 @@ function render() {
 
     let deleteButton = document.createElement("button");
     deleteButton.type = "button";
-    deleteButton.className = "delete-btn delete-btn-inline";
+    deleteButton.className = "delete-btn";
     deleteButton.textContent = "\u00d7";
     deleteButton.title = "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c";
     deleteButton.setAttribute("aria-label", "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0437\u0430\u043f\u0438\u0441\u044c");
@@ -389,11 +286,8 @@ function render() {
     content.appendChild(info);
     content.appendChild(deleteButton);
 
-    li.appendChild(swipeActions);
     li.appendChild(content);
     list.appendChild(li);
-
-    bindSwipeForItem(li);
   });
 }
 
