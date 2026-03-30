@@ -31,7 +31,14 @@
 
 </div>
  
-  <select id="exerciseSelect"></select>
+  <div class="exercise-picker" id="exercisePicker">
+    <button type="button" class="exercise-picker-toggle" id="exercisePickerToggle" aria-haspopup="listbox" aria-expanded="false"></button>
+    <div class="exercise-picker-menu" id="exercisePickerMenu" hidden>
+      <div class="exercise-picker-list" id="exercisePickerList" role="listbox"></div>
+    </div>
+  </div>
+
+  <select id="exerciseSelect" hidden></select>
 
   <input type="text" id="newExercise" placeholder="Добавить своё упражнение">
   <button class="add-btn" onclick="addExercise()">Добавить упражнение</button>
@@ -74,7 +81,7 @@
   </div>
 </div>
 
-<div class="app-version">ALPHA 1.1.0</div>
+<div class="app-version">ALPHA 1.1.1</div>
 
 <script src="js/script.js"></script>
 </body>

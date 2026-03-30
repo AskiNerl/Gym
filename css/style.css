@@ -102,6 +102,290 @@ button:hover {
   color: white;
 }
 
+.exercise-picker {
+  margin-top: 10px;
+  position: relative;
+}
+
+.exercise-picker-toggle {
+  margin-top: 0;
+  background: rgba(255, 255, 255, 0.88);
+  color: inherit;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.dark .exercise-picker-toggle {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.exercise-picker-toggle::after {
+  content: "\25be";
+  font-size: 14px;
+  opacity: 0.7;
+  transition: transform 0.2s ease;
+}
+
+.exercise-picker-toggle.open::after {
+  transform: rotate(180deg);
+}
+
+.exercise-picker-toggle:hover {
+  transform: none;
+}
+
+.exercise-picker-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 16px 28px rgba(9, 24, 44, 0.2);
+}
+
+.exercise-picker-menu.menu-opening {
+  animation: pickerMenuOpen 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.exercise-picker-menu.menu-opening .exercise-option-row {
+  animation: pickerRowIn 240ms both;
+  animation-delay: calc(var(--row-index, 0) * 18ms);
+}
+
+body.dark .exercise-picker-menu {
+  background: #1f2a37;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.exercise-picker-list {
+  max-height: 230px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.exercise-option-row {
+  position: relative;
+  margin-top: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.exercise-option-row + .exercise-option-row {
+  margin-top: 6px;
+}
+
+.exercise-option-main {
+  margin-top: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 11px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.2, 1), background-color 0.2s ease;
+}
+
+body.dark .exercise-option-main {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.exercise-option-main:hover {
+  transform: none;
+  background: rgba(0, 0, 0, 0.07);
+}
+
+body.dark .exercise-option-main:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.exercise-option-row.active .exercise-option-main {
+  background: #4CAF50;
+  color: #fff;
+}
+
+.exercise-option-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.exercise-option-actions button {
+  width: 72px;
+  margin-top: 0;
+  border-radius: 0;
+  padding: 0;
+  font-size: 13px;
+}
+
+.exercise-option-actions button:hover {
+  transform: none;
+}
+
+.exercise-option-edit {
+  background: #3f8cff;
+  color: #fff;
+}
+
+.exercise-option-delete {
+  background: #ea5455;
+  color: #fff;
+}
+
+.exercise-option-row.custom.open .exercise-option-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.exercise-option-row.custom.open .exercise-option-main {
+  transform: translateX(-144px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exercise-option-row.custom .exercise-option-actions {
+    z-index: 2;
+  }
+
+  .exercise-option-row.custom .exercise-option-main {
+    transform: none !important;
+  }
+
+  .exercise-option-row.custom:hover .exercise-option-actions,
+  .exercise-option-row.custom:focus-within .exercise-option-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .exercise-option-row.custom.open .exercise-option-main {
+    transform: translateX(-144px);
+  }
+}
+
+.exercise-option-row.editing {
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.04);
+  animation: editRowPop 180ms ease;
+}
+
+body.dark .exercise-option-row.editing {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.exercise-option-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.exercise-option-edit-row input {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.exercise-option-save {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 10px;
+  background: #4CAF50;
+  color: #fff;
+}
+
+.exercise-option-cancel {
+  width: auto;
+  margin-top: 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+}
+
+body.dark .exercise-option-cancel {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.exercise-option-save:hover,
+.exercise-option-cancel:hover {
+  transform: none;
+}
+
+@keyframes pickerMenuOpen {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pickerRowIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes editRowPop {
+  0% {
+    transform: scale(0.985);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exercise-picker-menu.menu-opening,
+  .exercise-picker-menu.menu-opening .exercise-option-row,
+  .exercise-option-row.editing {
+    animation: none !important;
+  }
+
+  .exercise-option-main,
+  .exercise-option-actions {
+    transition: none !important;
+  }
+}
+
 
 ul {
   list-style: none;
@@ -538,6 +822,36 @@ body.dark .day:hover {
 
   .bodyweight-label {
     font-size: 15px;
+  }
+
+  .exercise-picker-list {
+    max-height: 46dvh;
+  }
+
+  .exercise-option-actions button {
+    width: 68px;
+    font-size: 12px;
+  }
+
+  .exercise-option-row.custom.open .exercise-option-main {
+    transform: translateX(-136px);
+  }
+
+  .exercise-option-main:active {
+    filter: brightness(0.98);
+  }
+
+  .exercise-option-edit-row {
+    flex-wrap: wrap;
+  }
+
+  .exercise-option-edit-row input {
+    width: 100%;
+  }
+
+  .exercise-option-save,
+  .exercise-option-cancel {
+    flex: 1;
   }
 
   .confirm-dialog {

@@ -6,6 +6,13 @@ let exercises = JSON.parse(localStorage.getItem("exercises")) || [
   "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
 ];
 
+const lockedExercises = new Set([
+  "\u0416\u0438\u043c \u043b\u0451\u0436\u0430",
+  "\u0411\u0438\u0446\u0435\u043f\u0441",
+  "\u041f\u0440\u0438\u0441\u0435\u0434",
+  "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
+]);
+
 const bodyweightAllowedExercises = new Set([
   "\u041f\u0440\u0438\u0441\u0435\u0434",
   "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
@@ -15,7 +22,7 @@ let pendingDeleteIndex = null;
 
 function ensureRequiredExercises() {
   let changed = false;
-  let required = ["\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"];
+  let required = Array.from(lockedExercises);
 
   required.forEach(exercise => {
     if (!exercises.includes(exercise)) {
@@ -27,6 +34,14 @@ function ensureRequiredExercises() {
   if (changed) {
     localStorage.setItem("exercises", JSON.stringify(exercises));
   }
+}
+
+function isCustomExercise(exercise) {
+  return !lockedExercises.has(exercise);
+}
+
+function saveExercises() {
+  localStorage.setItem("exercises", JSON.stringify(exercises));
 }
 
 function updateWeightMode() {
@@ -54,7 +69,10 @@ function bindExerciseControls() {
   let exerciseSelect = document.getElementById("exerciseSelect");
   let bodyweightToggle = document.getElementById("bodyweightToggle");
 
-  exerciseSelect.addEventListener("change", updateWeightMode);
+  exerciseSelect.addEventListener("change", () => {
+    updateWeightMode();
+    renderExercisePicker();
+  });
   bodyweightToggle.addEventListener("change", updateWeightMode);
 }
 
@@ -114,8 +132,13 @@ function normalizeStoredWorkouts() {
   }
 }
 
-function loadExercises() {
+let editingPickerExercise = "";
+let openedPickerExercise = "";
+let pickerMenuAnimationTimer = null;
+
+function loadExercises(preferredExercise = "") {
   let select = document.getElementById("exerciseSelect");
+  let currentValue = preferredExercise || select.value;
   select.innerHTML = "";
 
   exercises.forEach(ex => {
@@ -124,6 +147,259 @@ function loadExercises() {
     option.textContent = ex;
     select.appendChild(option);
   });
+
+  let nextValue = currentValue && exercises.includes(currentValue) ? currentValue : (exercises[0] || "");
+  if (nextValue) {
+    select.value = nextValue;
+  }
+
+  renderExercisePicker();
+  updateWeightMode();
+}
+
+function renderExercisePicker() {
+  let select = document.getElementById("exerciseSelect");
+  let selectedExercise = select.value;
+  let toggle = document.getElementById("exercisePickerToggle");
+  let list = document.getElementById("exercisePickerList");
+  if (!toggle || !list) return;
+
+  toggle.textContent = selectedExercise || "Выбрать упражнение";
+  list.innerHTML = "";
+
+  if (editingPickerExercise && !exercises.includes(editingPickerExercise)) {
+    editingPickerExercise = "";
+  }
+
+  if (openedPickerExercise && !exercises.includes(openedPickerExercise)) {
+    openedPickerExercise = "";
+  }
+
+  exercises.forEach((exerciseName, index) => {
+    let isCustom = isCustomExercise(exerciseName);
+    let row = document.createElement("div");
+    row.className = "exercise-option-row";
+    row.style.setProperty("--row-index", String(index));
+
+    if (exerciseName === selectedExercise) {
+      row.classList.add("active");
+    }
+
+    if (isCustom) {
+      row.classList.add("custom");
+    }
+
+    if (openedPickerExercise === exerciseName) {
+      row.classList.add("open");
+    }
+
+    if (editingPickerExercise === exerciseName) {
+      row.classList.add("editing");
+
+      let editRow = document.createElement("div");
+      editRow.className = "exercise-option-edit-row";
+
+      let input = document.createElement("input");
+      input.type = "text";
+      input.value = exerciseName;
+      input.placeholder = "Новое название";
+      input.maxLength = 40;
+
+      let saveButton = document.createElement("button");
+      saveButton.type = "button";
+      saveButton.className = "exercise-option-save";
+      saveButton.textContent = "Сохранить";
+      saveButton.onclick = event => {
+        event.stopPropagation();
+        renameCustomExercise(exerciseName, input.value);
+      };
+
+      let cancelButton = document.createElement("button");
+      cancelButton.type = "button";
+      cancelButton.className = "exercise-option-cancel";
+      cancelButton.textContent = "Отмена";
+      cancelButton.onclick = event => {
+        event.stopPropagation();
+        editingPickerExercise = "";
+        renderExercisePicker();
+      };
+
+      input.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          renameCustomExercise(exerciseName, input.value);
+        }
+
+        if (event.key === "Escape") {
+          editingPickerExercise = "";
+          renderExercisePicker();
+        }
+      });
+
+      editRow.appendChild(input);
+      editRow.appendChild(saveButton);
+      editRow.appendChild(cancelButton);
+      row.appendChild(editRow);
+
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 0);
+    } else {
+      let mainButton = document.createElement("button");
+      mainButton.type = "button";
+      mainButton.className = "exercise-option-main";
+      mainButton.textContent = exerciseName;
+      mainButton.setAttribute("role", "option");
+      mainButton.setAttribute("aria-selected", exerciseName === selectedExercise ? "true" : "false");
+      mainButton.onclick = event => {
+        event.preventDefault();
+        openedPickerExercise = "";
+        editingPickerExercise = "";
+        select.value = exerciseName;
+        updateWeightMode();
+        renderExercisePicker();
+        closeExercisePicker();
+      };
+
+      row.appendChild(mainButton);
+
+      if (isCustom) {
+        let actions = document.createElement("div");
+        actions.className = "exercise-option-actions";
+
+        let editButton = document.createElement("button");
+        editButton.type = "button";
+        editButton.className = "exercise-option-edit";
+        editButton.textContent = "Редакт.";
+        editButton.onclick = event => {
+          event.stopPropagation();
+          editingPickerExercise = exerciseName;
+          openedPickerExercise = "";
+          renderExercisePicker();
+        };
+
+        let deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "exercise-option-delete";
+        deleteButton.textContent = "Удалить";
+        deleteButton.onclick = event => {
+          event.stopPropagation();
+          removeCustomExercise(exerciseName);
+        };
+
+        actions.appendChild(editButton);
+        actions.appendChild(deleteButton);
+        row.appendChild(actions);
+
+        bindPickerSwipe(mainButton, exerciseName);
+      }
+    }
+
+    list.appendChild(row);
+  });
+}
+
+function openExercisePicker() {
+  let menu = document.getElementById("exercisePickerMenu");
+  let toggle = document.getElementById("exercisePickerToggle");
+  if (!menu || !toggle) return;
+
+  menu.hidden = false;
+  menu.classList.remove("menu-opening");
+  requestAnimationFrame(() => {
+    menu.classList.add("menu-opening");
+  });
+  clearTimeout(pickerMenuAnimationTimer);
+  pickerMenuAnimationTimer = setTimeout(() => {
+    menu.classList.remove("menu-opening");
+  }, 320);
+  toggle.classList.add("open");
+  toggle.setAttribute("aria-expanded", "true");
+}
+
+function closeExercisePicker() {
+  let menu = document.getElementById("exercisePickerMenu");
+  let toggle = document.getElementById("exercisePickerToggle");
+  if (!menu || !toggle) return;
+
+  menu.hidden = true;
+  clearTimeout(pickerMenuAnimationTimer);
+  menu.classList.remove("menu-opening");
+  toggle.classList.remove("open");
+  toggle.setAttribute("aria-expanded", "false");
+}
+
+function bindExercisePickerControls() {
+  let toggle = document.getElementById("exercisePickerToggle");
+  if (!toggle) return;
+
+  toggle.addEventListener("click", event => {
+    event.preventDefault();
+    let menu = document.getElementById("exercisePickerMenu");
+    if (!menu || menu.hidden) {
+      openExercisePicker();
+      return;
+    }
+
+    closeExercisePicker();
+  });
+
+  document.addEventListener("click", event => {
+    if (!event.target.closest(".exercise-picker")) {
+      closeExercisePicker();
+
+      if (openedPickerExercise || editingPickerExercise) {
+        openedPickerExercise = "";
+        editingPickerExercise = "";
+        renderExercisePicker();
+      }
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeExercisePicker();
+
+      if (openedPickerExercise || editingPickerExercise) {
+        openedPickerExercise = "";
+        editingPickerExercise = "";
+        renderExercisePicker();
+      }
+    }
+  });
+}
+
+function bindPickerSwipe(node, exerciseName) {
+  let startX = 0;
+  let startY = 0;
+
+  node.addEventListener("touchstart", event => {
+    let touch = event.changedTouches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+  }, { passive: true });
+
+  node.addEventListener("touchend", event => {
+    let touch = event.changedTouches[0];
+    let dx = touch.clientX - startX;
+    let dy = touch.clientY - startY;
+
+    if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) {
+      return;
+    }
+
+    if (dx < -30) {
+      openedPickerExercise = exerciseName;
+      renderExercisePicker();
+      return;
+    }
+
+    if (dx > 30 && openedPickerExercise === exerciseName) {
+      openedPickerExercise = "";
+      renderExercisePicker();
+    }
+  }, { passive: true });
 }
 
 function addExercise() {
@@ -132,12 +408,79 @@ function addExercise() {
 
   if (!value) return;
 
+  if (exercises.includes(value)) {
+    openNoticeModal("Такое упражнение уже есть.");
+    return;
+  }
+
   exercises.push(value);
-  localStorage.setItem("exercises", JSON.stringify(exercises));
+  saveExercises();
 
   input.value = "";
-  loadExercises();
-  updateWeightMode();
+  loadExercises(value);
+}
+
+function renameCustomExercise(oldName, nextName) {
+  if (!isCustomExercise(oldName)) return;
+
+  let newName = nextName.trim();
+  if (!newName) {
+    openNoticeModal("Введите название упражнения.");
+    return;
+  }
+
+  if (newName !== oldName && exercises.includes(newName)) {
+    openNoticeModal("Такое упражнение уже есть.");
+    return;
+  }
+
+  let index = exercises.indexOf(oldName);
+  if (index === -1) return;
+
+  exercises[index] = newName;
+  saveExercises();
+
+  let workoutsChanged = false;
+  workouts = workouts.map(workout => {
+    if (workout.exercise !== oldName) {
+      return workout;
+    }
+
+    workoutsChanged = true;
+    return { ...workout, exercise: newName };
+  });
+
+  if (workoutsChanged) {
+    localStorage.setItem("workouts", JSON.stringify(workouts));
+  }
+
+  let selectedExercise = document.getElementById("exerciseSelect").value;
+  let nextSelected = selectedExercise === oldName ? newName : selectedExercise;
+
+  editingPickerExercise = "";
+  openedPickerExercise = "";
+  loadExercises(nextSelected);
+  render();
+  renderCalendar();
+}
+
+function removeCustomExercise(exerciseName) {
+  if (!isCustomExercise(exerciseName)) return;
+
+  exercises = exercises.filter(exercise => exercise !== exerciseName);
+  saveExercises();
+
+  if (editingPickerExercise === exerciseName) {
+    editingPickerExercise = "";
+  }
+
+  if (openedPickerExercise === exerciseName) {
+    openedPickerExercise = "";
+  }
+
+  let selectedExercise = document.getElementById("exerciseSelect").value;
+  let nextSelected = selectedExercise === exerciseName ? (exercises[0] || "") : selectedExercise;
+  loadExercises(nextSelected);
 }
 
 function addWorkout() {
@@ -150,7 +493,7 @@ function addWorkout() {
   let today = getTodayISO();
 
   if (selectedDate > today) {
-    openNoticeModal("Выбранная дата ещё не наступила");
+    openNoticeModal("На будущее нельзя ставить записи тренировок.");
     return;
   }
 
@@ -453,6 +796,7 @@ normalizeStoredWorkouts();
 ensureRequiredExercises();
 loadTheme();
 bindSystemThemeSync();
+bindExercisePickerControls();
 loadExercises();
 bindExerciseControls();
 bindDeleteModal();
