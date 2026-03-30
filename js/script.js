@@ -147,6 +147,12 @@ function addWorkout() {
   let weight = parseFloat(document.getElementById("weight").value);
   let sets = parseInt(document.getElementById("sets").value, 10);
   let isWeightInvalid = Number.isNaN(weight);
+  let today = getTodayISO();
+
+  if (selectedDate > today) {
+    openNoticeModal("Выбранная дата ещё не наступила");
+    return;
+  }
 
   if (Number.isNaN(sets)) return;
   if (!useBodyweight && isWeightInvalid) return;
@@ -188,6 +194,13 @@ function formatWorkoutWeight(workout) {
   return isBodyweightWorkout ? "\u0441\u0432\u043e\u0439 \u0432\u0435\u0441" : `${workout.weight} \u043a\u0433`;
 }
 
+function syncModalBodyState() {
+  let confirmModal = document.getElementById("confirmModal");
+  let noticeModal = document.getElementById("noticeModal");
+  let hasOpenModal = (confirmModal && !confirmModal.hidden) || (noticeModal && !noticeModal.hidden);
+  document.body.classList.toggle("modal-open", hasOpenModal);
+}
+
 function openDeleteModal(index) {
   let workout = workouts[index];
   if (!workout) return;
@@ -201,13 +214,29 @@ function openDeleteModal(index) {
   text.textContent = `${dateForDisplay} - ${workout.exercise}: ${weightLabel} (${workout.sets} \u043f\u043e\u0434\u0445\u043e\u0434\u043e\u0432)`;
 
   modal.hidden = false;
-  document.body.classList.add("modal-open");
+  syncModalBodyState();
+}
+
+function openNoticeModal(message, title = "Ошибка") {
+  let modal = document.getElementById("noticeModal");
+  let titleNode = document.getElementById("noticeTitle");
+  let textNode = document.getElementById("noticeText");
+
+  titleNode.textContent = title;
+  textNode.textContent = message;
+  modal.hidden = false;
+  syncModalBodyState();
 }
 
 function closeDeleteModal() {
   pendingDeleteIndex = null;
   document.getElementById("confirmModal").hidden = true;
-  document.body.classList.remove("modal-open");
+  syncModalBodyState();
+}
+
+function closeNoticeModal() {
+  document.getElementById("noticeModal").hidden = true;
+  syncModalBodyState();
 }
 
 function confirmDeleteWorkout() {
@@ -233,6 +262,17 @@ function bindDeleteModal() {
   document.addEventListener("keydown", event => {
     if (event.key === "Escape" && !document.getElementById("confirmModal").hidden) {
       closeDeleteModal();
+    }
+  });
+}
+
+function bindNoticeModal() {
+  document.getElementById("noticeOk").addEventListener("click", closeNoticeModal);
+  document.getElementById("noticeBackdrop").addEventListener("click", closeNoticeModal);
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !document.getElementById("noticeModal").hidden) {
+      closeNoticeModal();
     }
   });
 }
@@ -376,6 +416,7 @@ loadTheme();
 loadExercises();
 bindExerciseControls();
 bindDeleteModal();
+bindNoticeModal();
 bindSettingsControls();
 bindMobileZoomLock();
 updateWeightMode();

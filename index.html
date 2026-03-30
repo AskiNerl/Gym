@@ -63,7 +63,18 @@
   </div>
 </div>
 
-<div class="app-version">ALPHA 1.0</div>
+<div class="confirm-modal" id="noticeModal" hidden>
+  <div class="confirm-backdrop" id="noticeBackdrop"></div>
+  <div class="confirm-dialog notice-dialog" role="alertdialog" aria-modal="true" aria-labelledby="noticeTitle">
+    <h3 id="noticeTitle">Ошибка</h3>
+    <p id="noticeText"></p>
+    <div class="confirm-actions">
+      <button type="button" class="notice-ok" id="noticeOk">Понятно</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-version">ALPHA 1.1.0</div>
 
 <script src="js/script.js"></script>
 </body>

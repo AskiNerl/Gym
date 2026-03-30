@@ -257,6 +257,24 @@ body.dark .confirm-delete {
   background: #d24a4b;
 }
 
+.notice-dialog {
+  border-top: 4px solid #ff9800;
+}
+
+body.dark .notice-dialog {
+  border-top-color: #ffb347;
+}
+
+.notice-ok {
+  background: #ff9800;
+  color: #fff;
+}
+
+body.dark .notice-ok {
+  background: #ffb347;
+  color: #1a1a1a;
+}
+
 .app-version {
   position: fixed;
   left: 12px;
