@@ -241,11 +241,57 @@ function bindSettingsControls() {
   let settingsBtn = document.querySelector(".settings-btn");
   if (!settingsBtn) return;
 
+  settingsBtn.type = "button";
+  settingsBtn.setAttribute("aria-label", "Открыть настройки");
   settingsBtn.removeAttribute("onclick");
-  settingsBtn.addEventListener("click", event => {
+
+  let toggleSettings = event => {
     event.preventDefault();
+    event.stopPropagation();
     toggleMenu();
+  };
+
+  settingsBtn.addEventListener("click", toggleSettings);
+
+  document.addEventListener("click", event => {
+    let menu = document.getElementById("menu");
+    if (!menu || menu.style.display !== "block") return;
+
+    if (event.target.closest(".settings-btn") || event.target.closest(".settings-menu")) {
+      return;
+    }
+
+    menu.style.display = "none";
   });
+}
+
+function bindMobileZoomLock() {
+  let lastTouchEnd = 0;
+
+  document.addEventListener("touchend", event => {
+    let target = event.target;
+    let isInteractive = target && target.closest && target.closest("button, input, select, textarea, label, a");
+    let now = Date.now();
+
+    if (!isInteractive && now - lastTouchEnd <= 300) {
+      event.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  document.addEventListener("touchmove", event => {
+    if (event.touches.length > 1) {
+      event.preventDefault();
+    }
+
+    if (typeof event.scale === "number" && event.scale !== 1) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener("gesturestart", event => event.preventDefault());
+  document.addEventListener("gesturechange", event => event.preventDefault());
+  document.addEventListener("gestureend", event => event.preventDefault());
 }
 
 function requestDeleteWorkout(index) {
@@ -331,6 +377,7 @@ loadExercises();
 bindExerciseControls();
 bindDeleteModal();
 bindSettingsControls();
+bindMobileZoomLock();
 updateWeightMode();
 render();
 
