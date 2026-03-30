@@ -396,9 +396,48 @@ function toggleTheme() {
   );
 }
 
+function applyTheme(theme) {
+  document.body.classList.toggle("dark", theme === "dark");
+}
+
+function getSystemTheme() {
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
+  return "light";
+}
+
 function loadTheme() {
-  if (localStorage.getItem("theme") === "dark") {
-    document.body.classList.add("dark");
+  let savedTheme = localStorage.getItem("theme");
+
+  if (savedTheme === "dark" || savedTheme === "light") {
+    applyTheme(savedTheme);
+    return;
+  }
+
+  applyTheme(getSystemTheme());
+}
+
+function bindSystemThemeSync() {
+  if (!window.matchMedia) return;
+
+  let media = window.matchMedia("(prefers-color-scheme: dark)");
+  let handleChange = event => {
+    let savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark" || savedTheme === "light") {
+      return;
+    }
+
+    applyTheme(event.matches ? "dark" : "light");
+  };
+
+  if (typeof media.addEventListener === "function") {
+    media.addEventListener("change", handleChange);
+    return;
+  }
+
+  if (typeof media.addListener === "function") {
+    media.addListener(handleChange);
   }
 }
 
@@ -413,6 +452,7 @@ let selectedDate = getTodayISO();
 normalizeStoredWorkouts();
 ensureRequiredExercises();
 loadTheme();
+bindSystemThemeSync();
 loadExercises();
 bindExerciseControls();
 bindDeleteModal();
