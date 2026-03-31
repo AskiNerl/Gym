@@ -5,6 +5,30 @@
   "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
 ];
 
+// Fill these fields to enable cloud sync via Supabase.
+const cloudConfig = {
+  supabaseUrl: "https://fxolqlfezieggfwdvchp.supabase.co",
+  supabaseAnonKey: "sb_publishable_557NYy_OYegz51oNV29ZJA_w_-USYi_",
+  stateTable: "workout_state",
+  stateId: ""
+};
+
+function createCloudClient() {
+  if (!cloudConfig.supabaseUrl || !cloudConfig.supabaseAnonKey || !cloudConfig.stateId) {
+    return null;
+  }
+
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    return null;
+  }
+
+  try {
+    return window.supabase.createClient(cloudConfig.supabaseUrl, cloudConfig.supabaseAnonKey);
+  } catch (error) {
+    return null;
+  }
+}
+
 function createStorage() {
   let localStorageEnabled = false;
 
@@ -82,6 +106,13 @@ const indexedDBStoreName = "app-data";
 const cacheStorageName = "workout-tracker-state-v1";
 const cacheKeyPrefix = "/__tracker_store__/";
 let indexedDBOpenPromise = null;
+const cloudClient = createCloudClient();
+const cloudSyncKeys = new Set(["workouts", "exercises", "theme"]);
+let cloudBootstrapDone = false;
+let cloudSyncTimer = null;
+let cloudSyncInProgress = false;
+let cloudSyncPending = false;
+let cloudSyncErrorShown = false;
 
 function openIndexedDB() {
   if (!("indexedDB" in window)) {
@@ -279,6 +310,133 @@ function bindSafariStorageAccessRequest() {
   document.addEventListener("touchend", requestOnGesture, { capture: true, passive: true });
 }
 
+function isCloudEnabled() {
+  return cloudClient !== null;
+}
+
+function getCurrentThemeValue() {
+  return document.body.classList.contains("dark") ? "dark" : "light";
+}
+
+async function runCloudSync() {
+  if (!isCloudEnabled()) return;
+  if (!cloudBootstrapDone) return;
+  if (cloudSyncInProgress) {
+    cloudSyncPending = true;
+    return;
+  }
+
+  cloudSyncInProgress = true;
+  cloudSyncPending = false;
+
+  try {
+    let payload = {
+      id: cloudConfig.stateId,
+      workouts,
+      exercises,
+      theme: getCurrentThemeValue(),
+      updated_at: new Date().toISOString()
+    };
+
+    let { error } = await cloudClient
+      .from(cloudConfig.stateTable)
+      .upsert(payload, { onConflict: "id" });
+
+    if (error && !cloudSyncErrorShown) {
+      cloudSyncErrorShown = true;
+      openNoticeModal("Ошибка синхронизации с облаком. Проверь настройки Supabase.");
+    }
+  } catch (error) {
+    if (!cloudSyncErrorShown) {
+      cloudSyncErrorShown = true;
+      openNoticeModal("Ошибка синхронизации с облаком. Проверь интернет и настройки Supabase.");
+    }
+  } finally {
+    cloudSyncInProgress = false;
+    if (cloudSyncPending) {
+      runCloudSync();
+    }
+  }
+}
+
+function scheduleCloudSync(key) {
+  if (!cloudSyncKeys.has(key)) return;
+  if (!isCloudEnabled()) return;
+  if (!cloudBootstrapDone) return;
+
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    runCloudSync();
+  }, 350);
+}
+
+async function bootstrapCloudState() {
+  if (!isCloudEnabled()) return;
+
+  try {
+    let { data, error } = await cloudClient
+      .from(cloudConfig.stateTable)
+      .select("id, workouts, exercises, theme")
+      .eq("id", cloudConfig.stateId)
+      .maybeSingle();
+
+    if (error) {
+      cloudBootstrapDone = true;
+      if (!cloudSyncErrorShown) {
+        cloudSyncErrorShown = true;
+        openNoticeModal("Не удалось загрузить облачные данные. Проверь таблицу и ключи Supabase.");
+      }
+      return;
+    }
+
+    let cloudWorkouts = data && Array.isArray(data.workouts) ? data.workouts.slice() : [];
+    let cloudExercises = data && Array.isArray(data.exercises) ? data.exercises.slice() : [];
+    let cloudTheme = data ? data.theme : null;
+    let hasCloudState = cloudWorkouts.length > 0 || cloudExercises.length > 0 || cloudTheme === "dark" || cloudTheme === "light";
+
+    if (hasCloudState) {
+      let useCloudWorkouts = cloudWorkouts.length > workouts.length;
+      if (useCloudWorkouts) {
+        workouts = cloudWorkouts;
+        persistRawToAllStores("workouts", JSON.stringify(workouts));
+      }
+
+      let useCloudExercises = cloudExercises.length > exercises.length;
+      if (!useCloudExercises && cloudExercises.length > 0) {
+        useCloudExercises = !hasCustomExercises(exercises) && hasCustomExercises(cloudExercises);
+      }
+
+      if (useCloudExercises) {
+        exercises = cloudExercises;
+        persistRawToAllStores("exercises", JSON.stringify(exercises));
+      }
+
+      if (cloudTheme === "dark" || cloudTheme === "light") {
+        applyTheme(cloudTheme);
+        persistRawToAllStores("theme", cloudTheme);
+      }
+
+      normalizeStoredWorkouts();
+      ensureRequiredExercises();
+      loadExercises(document.getElementById("exerciseSelect").value);
+      updateWeightMode();
+      render();
+      renderCalendar();
+    } else {
+      cloudBootstrapDone = true;
+      await runCloudSync();
+      return;
+    }
+  } catch (error) {
+    if (!cloudSyncErrorShown) {
+      cloudSyncErrorShown = true;
+      openNoticeModal("Не удалось подключиться к Supabase. Проверь URL и ключ.");
+    }
+  } finally {
+    cloudBootstrapDone = true;
+  }
+}
+
 function getStoredValue(key) {
   return storage.getItem(key);
 }
@@ -306,11 +464,13 @@ function getStoredArray(key, fallback) {
 
 function setStoredValue(key, value) {
   persistRawToAllStores(key, value);
+  scheduleCloudSync(key);
 }
 
 function setStoredJSON(key, value) {
   let jsonValue = JSON.stringify(value);
   persistRawToAllStores(key, jsonValue);
+  scheduleCloudSync(key);
 }
 
 let workouts = getStoredArray("workouts", []);
@@ -1290,4 +1450,8 @@ function renderCalendar() {
 
 renderWeekdays();
 renderCalendar();
-hydrateFromIndexedDB().catch(() => {});
+hydrateFromIndexedDB()
+  .catch(() => {})
+  .finally(() => {
+    bootstrapCloudState().catch(() => {});
+  });
