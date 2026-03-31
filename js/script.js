@@ -318,18 +318,54 @@ function sanitizeStateSegment(value) {
   return value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
 }
 
-function generateProfileId() {
-  if (window.crypto && typeof window.crypto.randomUUID === "function") {
-    return `u${window.crypto.randomUUID().replace(/-/g, "")}`;
+function getCloudStatePrefix() {
+  return sanitizeStateSegment(cloudConfig.stateId) || "tracker";
+}
+
+function getDeviceIdentitySeed() {
+  let timezone = "";
+
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch (error) {
+    timezone = "";
   }
 
-  let randomPart = Math.random().toString(36).slice(2, 12);
-  let timePart = Date.now().toString(36);
-  return `u${timePart}${randomPart}`;
+  let screenSize = "";
+  if (window.screen) {
+    let minSide = Math.min(window.screen.width, window.screen.height);
+    let maxSide = Math.max(window.screen.width, window.screen.height);
+    screenSize = `${minSide}x${maxSide}`;
+  }
+
+  return [
+    navigator.userAgent || "",
+    navigator.language || "",
+    navigator.platform || "",
+    navigator.vendor || "",
+    screenSize,
+    String(window.devicePixelRatio || ""),
+    timezone
+  ].join("|");
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+
+  return (hash >>> 0).toString(36);
+}
+
+function generateProfileId() {
+  return `d${hashString(getDeviceIdentitySeed())}`;
 }
 
 function buildCloudStateId(profileId) {
-  let prefix = sanitizeStateSegment(cloudConfig.stateId) || "tracker";
+  let prefix = getCloudStatePrefix();
   return `${prefix}__${profileId}`;
 }
 
