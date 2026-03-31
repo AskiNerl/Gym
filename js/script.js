@@ -1,11 +1,118 @@
-﻿let workouts = JSON.parse(localStorage.getItem("workouts")) || [];
-let exercises = JSON.parse(localStorage.getItem("exercises")) || [
+﻿const defaultExercises = [
   "\u0416\u0438\u043c \u043b\u0451\u0436\u0430",
   "\u0411\u0438\u0446\u0435\u043f\u0441",
   "\u041f\u0440\u0438\u0441\u0435\u0434",
   "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
 ];
 
+function createStorage() {
+  let localStorageEnabled = false;
+
+  try {
+    let testKey = "__tracker_storage_test__";
+    localStorage.setItem(testKey, "1");
+    localStorage.removeItem(testKey);
+    localStorageEnabled = true;
+  } catch (error) {
+    localStorageEnabled = false;
+  }
+
+  function readCookie(key) {
+    let prefix = `${encodeURIComponent(key)}=`;
+    let parts = document.cookie ? document.cookie.split("; ") : [];
+
+    for (let part of parts) {
+      if (part.startsWith(prefix)) {
+        return decodeURIComponent(part.slice(prefix.length));
+      }
+    }
+
+    return null;
+  }
+
+  function writeCookie(key, value) {
+    let encodedKey = encodeURIComponent(key);
+    let encodedValue = encodeURIComponent(value);
+    let maxAgeSeconds = 60 * 60 * 24 * 365 * 3;
+    document.cookie = `${encodedKey}=${encodedValue}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+  }
+
+  return {
+    getItem(key) {
+      if (localStorageEnabled) {
+        try {
+          let localValue = localStorage.getItem(key);
+          if (localValue !== null) {
+            return localValue;
+          }
+        } catch (error) {
+          localStorageEnabled = false;
+        }
+      }
+
+      return readCookie(key);
+    },
+    setItem(key, value) {
+      let saved = false;
+
+      if (localStorageEnabled) {
+        try {
+          localStorage.setItem(key, value);
+          saved = true;
+        } catch (error) {
+          localStorageEnabled = false;
+        }
+      }
+
+      try {
+        writeCookie(key, value);
+        saved = true;
+      } catch (error) {
+        // Ignore cookie failures if localStorage succeeded.
+      }
+
+      return saved;
+    }
+  };
+}
+
+const storage = createStorage();
+
+function getStoredValue(key) {
+  return storage.getItem(key);
+}
+
+function getStoredJSON(key, fallback) {
+  let rawValue = getStoredValue(key);
+  if (!rawValue) return fallback;
+
+  try {
+    return JSON.parse(rawValue);
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function getStoredArray(key, fallback) {
+  let parsed = getStoredJSON(key, fallback);
+
+  if (Array.isArray(parsed)) {
+    return parsed.slice();
+  }
+
+  return Array.isArray(fallback) ? fallback.slice() : [];
+}
+
+function setStoredValue(key, value) {
+  storage.setItem(key, value);
+}
+
+function setStoredJSON(key, value) {
+  storage.setItem(key, JSON.stringify(value));
+}
+
+let workouts = getStoredArray("workouts", []);
+let exercises = getStoredArray("exercises", defaultExercises);
 const lockedExercises = new Set([
   "\u0416\u0438\u043c \u043b\u0451\u0436\u0430",
   "\u0411\u0438\u0446\u0435\u043f\u0441",
@@ -32,7 +139,7 @@ function ensureRequiredExercises() {
   });
 
   if (changed) {
-    localStorage.setItem("exercises", JSON.stringify(exercises));
+    setStoredJSON("exercises", exercises);
   }
 }
 
@@ -41,7 +148,7 @@ function isCustomExercise(exercise) {
 }
 
 function saveExercises() {
-  localStorage.setItem("exercises", JSON.stringify(exercises));
+  setStoredJSON("exercises", exercises);
 }
 
 function updateWeightMode() {
@@ -128,7 +235,7 @@ function normalizeStoredWorkouts() {
   });
 
   if (changed) {
-    localStorage.setItem("workouts", JSON.stringify(workouts));
+    setStoredJSON("workouts", workouts);
   }
 }
 
@@ -451,7 +558,7 @@ function renameCustomExercise(oldName, nextName) {
   });
 
   if (workoutsChanged) {
-    localStorage.setItem("workouts", JSON.stringify(workouts));
+    setStoredJSON("workouts", workouts);
   }
 
   let selectedExercise = document.getElementById("exerciseSelect").value;
@@ -524,7 +631,7 @@ function addWorkout() {
   };
 
   workouts.push(workout);
-  localStorage.setItem("workouts", JSON.stringify(workouts));
+  setStoredJSON("workouts", workouts);
 
   render();
   renderCalendar();
@@ -590,7 +697,7 @@ function confirmDeleteWorkout() {
   }
 
   workouts.splice(pendingDeleteIndex, 1);
-  localStorage.setItem("workouts", JSON.stringify(workouts));
+  setStoredJSON("workouts", workouts);
   closeDeleteModal();
 
   render();
@@ -734,7 +841,7 @@ function render() {
 // \u0422\u0415\u041c\u0410
 function toggleTheme() {
   document.body.classList.toggle("dark");
-  localStorage.setItem("theme",
+  setStoredValue("theme",
     document.body.classList.contains("dark") ? "dark" : "light"
   );
 }
@@ -751,7 +858,7 @@ function getSystemTheme() {
 }
 
 function loadTheme() {
-  let savedTheme = localStorage.getItem("theme");
+  let savedTheme = getStoredValue("theme");
 
   if (savedTheme === "dark" || savedTheme === "light") {
     applyTheme(savedTheme);
@@ -766,7 +873,7 @@ function bindSystemThemeSync() {
 
   let media = window.matchMedia("(prefers-color-scheme: dark)");
   let handleChange = event => {
-    let savedTheme = localStorage.getItem("theme");
+    let savedTheme = getStoredValue("theme");
     if (savedTheme === "dark" || savedTheme === "light") {
       return;
     }
