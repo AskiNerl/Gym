@@ -242,6 +242,43 @@ function requestPersistentStorage() {
   navigator.storage.persist().catch(() => {});
 }
 
+function isSafariBrowser() {
+  let ua = navigator.userAgent;
+  let vendor = navigator.vendor || "";
+  let isAppleVendor = vendor.includes("Apple");
+  let isSafariUA = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(ua);
+  return isAppleVendor && isSafariUA;
+}
+
+async function requestSafariStorageAccess() {
+  if (!isSafariBrowser()) return;
+  if (typeof document.hasStorageAccess !== "function") return;
+  if (typeof document.requestStorageAccess !== "function") return;
+
+  try {
+    let hasAccess = await document.hasStorageAccess();
+    if (hasAccess) return;
+    await document.requestStorageAccess();
+  } catch (error) {
+    // If Safari denies, we keep working with available storage layers.
+  }
+}
+
+function bindSafariStorageAccessRequest() {
+  if (!isSafariBrowser()) return;
+
+  let requested = false;
+
+  let requestOnGesture = () => {
+    if (requested) return;
+    requested = true;
+    requestSafariStorageAccess().catch(() => {});
+  };
+
+  document.addEventListener("click", requestOnGesture, { capture: true });
+  document.addEventListener("touchend", requestOnGesture, { capture: true, passive: true });
+}
+
 function getStoredValue(key) {
   return storage.getItem(key);
 }
@@ -1165,6 +1202,7 @@ requestPersistentStorage();
 seedIndexedDBFromSyncStorage();
 loadTheme();
 bindSystemThemeSync();
+bindSafariStorageAccessRequest();
 bindExercisePickerControls();
 loadExercises();
 bindExerciseControls();
