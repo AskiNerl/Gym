@@ -10,7 +10,7 @@ const cloudConfig = {
   supabaseUrl: "https://fxolqlfezieggfwdvchp.supabase.co",
   supabaseAnonKey: "sb_publishable_557NYy_OYegz51oNV29ZJA_w_-USYi_",
   stateTable: "workout_state",
-  stateId: ""
+  stateId: "my-train-2026"
 };
 
 function createCloudClient() {
