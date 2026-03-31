@@ -77,6 +77,105 @@ function createStorage() {
 }
 
 const storage = createStorage();
+const indexedDBName = "workout-tracker-db";
+const indexedDBStoreName = "app-data";
+let indexedDBOpenPromise = null;
+
+function openIndexedDB() {
+  if (!("indexedDB" in window)) {
+    return Promise.resolve(null);
+  }
+
+  if (indexedDBOpenPromise) {
+    return indexedDBOpenPromise;
+  }
+
+  indexedDBOpenPromise = new Promise(resolve => {
+    try {
+      let request = indexedDB.open(indexedDBName, 1);
+
+      request.onupgradeneeded = () => {
+        let db = request.result;
+        if (!db.objectStoreNames.contains(indexedDBStoreName)) {
+          db.createObjectStore(indexedDBStoreName);
+        }
+      };
+
+      request.onsuccess = () => {
+        resolve(request.result);
+      };
+
+      request.onerror = () => {
+        resolve(null);
+      };
+
+      request.onblocked = () => {
+        resolve(null);
+      };
+    } catch (error) {
+      resolve(null);
+    }
+  });
+
+  return indexedDBOpenPromise;
+}
+
+function getIndexedDBValue(key) {
+  return openIndexedDB().then(db => new Promise(resolve => {
+    if (!db) {
+      resolve(null);
+      return;
+    }
+
+    try {
+      let tx = db.transaction(indexedDBStoreName, "readonly");
+      let store = tx.objectStore(indexedDBStoreName);
+      let request = store.get(key);
+
+      request.onsuccess = () => {
+        resolve(typeof request.result === "string" ? request.result : null);
+      };
+
+      request.onerror = () => {
+        resolve(null);
+      };
+    } catch (error) {
+      resolve(null);
+    }
+  }));
+}
+
+function setIndexedDBValue(key, value) {
+  return openIndexedDB().then(db => new Promise(resolve => {
+    if (!db) {
+      resolve(false);
+      return;
+    }
+
+    try {
+      let tx = db.transaction(indexedDBStoreName, "readwrite");
+      tx.objectStore(indexedDBStoreName).put(value, key);
+
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (error) {
+      resolve(false);
+    }
+  }));
+}
+
+function persistToIndexedDB(key, value) {
+  setIndexedDBValue(key, value).catch(() => {});
+}
+
+function requestPersistentStorage() {
+  if (!navigator.storage || typeof navigator.storage.persist !== "function") {
+    return;
+  }
+
+  navigator.storage.persist().catch(() => {});
+}
 
 function getStoredValue(key) {
   return storage.getItem(key);
@@ -105,10 +204,13 @@ function getStoredArray(key, fallback) {
 
 function setStoredValue(key, value) {
   storage.setItem(key, value);
+  persistToIndexedDB(key, value);
 }
 
 function setStoredJSON(key, value) {
-  storage.setItem(key, JSON.stringify(value));
+  let jsonValue = JSON.stringify(value);
+  storage.setItem(key, jsonValue);
+  persistToIndexedDB(key, jsonValue);
 }
 
 let workouts = getStoredArray("workouts", []);
@@ -149,6 +251,85 @@ function isCustomExercise(exercise) {
 
 function saveExercises() {
   setStoredJSON("exercises", exercises);
+}
+
+function parseArrayFromRawStorage(rawValue) {
+  if (!rawValue) return [];
+
+  try {
+    let parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function hasCustomExercises(list) {
+  return list.some(exercise => !lockedExercises.has(exercise));
+}
+
+function seedIndexedDBFromSyncStorage() {
+  let workoutsRaw = storage.getItem("workouts");
+  let exercisesRaw = storage.getItem("exercises");
+  let themeRaw = storage.getItem("theme");
+
+  if (workoutsRaw !== null) {
+    persistToIndexedDB("workouts", workoutsRaw);
+  }
+
+  if (exercisesRaw !== null) {
+    persistToIndexedDB("exercises", exercisesRaw);
+  }
+
+  if (themeRaw !== null) {
+    persistToIndexedDB("theme", themeRaw);
+  }
+}
+
+async function hydrateFromIndexedDB() {
+  let [workoutsRaw, exercisesRaw, themeRaw] = await Promise.all([
+    getIndexedDBValue("workouts"),
+    getIndexedDBValue("exercises"),
+    getIndexedDBValue("theme")
+  ]);
+
+  let workoutsFromDB = parseArrayFromRawStorage(workoutsRaw);
+  let exercisesFromDB = parseArrayFromRawStorage(exercisesRaw);
+  let changed = false;
+
+  if (workoutsFromDB.length > workouts.length) {
+    workouts = workoutsFromDB.slice();
+    storage.setItem("workouts", JSON.stringify(workouts));
+    changed = true;
+  }
+
+  let useDBExercises = exercisesFromDB.length > exercises.length;
+  if (!useDBExercises && exercisesFromDB.length) {
+    useDBExercises = !hasCustomExercises(exercises) && hasCustomExercises(exercisesFromDB);
+  }
+
+  if (useDBExercises) {
+    exercises = exercisesFromDB.slice();
+    storage.setItem("exercises", JSON.stringify(exercises));
+    changed = true;
+  }
+
+  if (themeRaw === "dark" || themeRaw === "light") {
+    let savedTheme = getStoredValue("theme");
+    if (savedTheme !== "dark" && savedTheme !== "light") {
+      applyTheme(themeRaw);
+      storage.setItem("theme", themeRaw);
+    }
+  }
+
+  if (!changed) return;
+
+  normalizeStoredWorkouts();
+  ensureRequiredExercises();
+  loadExercises(document.getElementById("exerciseSelect").value);
+  updateWeightMode();
+  render();
+  renderCalendar();
 }
 
 function updateWeightMode() {
@@ -901,6 +1082,8 @@ let selectedDate = getTodayISO();
 
 normalizeStoredWorkouts();
 ensureRequiredExercises();
+requestPersistentStorage();
+seedIndexedDBFromSyncStorage();
 loadTheme();
 bindSystemThemeSync();
 bindExercisePickerControls();
@@ -990,3 +1173,4 @@ function renderCalendar() {
 
 renderWeekdays();
 renderCalendar();
+hydrateFromIndexedDB().catch(() => {});
