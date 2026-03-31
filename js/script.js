@@ -6,6 +6,7 @@
 ];
 
 // Fill these fields to enable cloud sync via Supabase.
+// stateId works as a shared project prefix, each user gets a personal suffix automatically.
 const cloudConfig = {
   supabaseUrl: "https://fxolqlfezieggfwdvchp.supabase.co",
   supabaseAnonKey: "sb_publishable_557NYy_OYegz51oNV29ZJA_w_-USYi_",
@@ -14,7 +15,7 @@ const cloudConfig = {
 };
 
 function createCloudClient() {
-  if (!cloudConfig.supabaseUrl || !cloudConfig.supabaseAnonKey || !cloudConfig.stateId) {
+  if (!cloudConfig.supabaseUrl || !cloudConfig.supabaseAnonKey) {
     return null;
   }
 
@@ -108,11 +109,13 @@ const cacheKeyPrefix = "/__tracker_store__/";
 let indexedDBOpenPromise = null;
 const cloudClient = createCloudClient();
 const cloudSyncKeys = new Set(["workouts", "exercises", "theme"]);
+const cloudProfileStorageKey = "__tracker_profile_id__";
 let cloudBootstrapDone = false;
 let cloudSyncTimer = null;
 let cloudSyncInProgress = false;
 let cloudSyncPending = false;
 let cloudSyncErrorShown = false;
+let cloudStateIdCache = "";
 
 function openIndexedDB() {
   if (!("indexedDB" in window)) {
@@ -310,6 +313,37 @@ function bindSafariStorageAccessRequest() {
   document.addEventListener("touchend", requestOnGesture, { capture: true, passive: true });
 }
 
+function sanitizeStateSegment(value) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+}
+
+function generateProfileId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return `u${window.crypto.randomUUID().replace(/-/g, "")}`;
+  }
+
+  let randomPart = Math.random().toString(36).slice(2, 12);
+  let timePart = Date.now().toString(36);
+  return `u${timePart}${randomPart}`;
+}
+
+function buildCloudStateId(profileId) {
+  let prefix = sanitizeStateSegment(cloudConfig.stateId) || "tracker";
+  return `${prefix}__${profileId}`;
+}
+
+function ensureCloudStateId() {
+  if (cloudStateIdCache) return cloudStateIdCache;
+
+  let storedProfileId = sanitizeStateSegment(getStoredValue(cloudProfileStorageKey));
+  let profileId = storedProfileId || generateProfileId();
+
+  persistRawToAllStores(cloudProfileStorageKey, profileId);
+  cloudStateIdCache = buildCloudStateId(profileId);
+  return cloudStateIdCache;
+}
+
 function isCloudEnabled() {
   return cloudClient !== null;
 }
@@ -330,8 +364,9 @@ async function runCloudSync() {
   cloudSyncPending = false;
 
   try {
+    let cloudStateId = ensureCloudStateId();
     let payload = {
-      id: cloudConfig.stateId,
+      id: cloudStateId,
       workouts,
       exercises,
       theme: getCurrentThemeValue(),
@@ -374,10 +409,11 @@ async function bootstrapCloudState() {
   if (!isCloudEnabled()) return;
 
   try {
+    let cloudStateId = ensureCloudStateId();
     let { data, error } = await cloudClient
       .from(cloudConfig.stateTable)
       .select("id, workouts, exercises, theme")
-      .eq("id", cloudConfig.stateId)
+      .eq("id", cloudStateId)
       .maybeSingle();
 
     if (error) {
