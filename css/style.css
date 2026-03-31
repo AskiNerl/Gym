@@ -612,11 +612,56 @@ body.dark .app-version {
   background: white;
   padding: 15px;
   border-radius: 15px;
+  width: min(320px, calc(100vw - 30px));
   display: none;
 }
 
 body.dark .settings-menu {
   background: #1e1e1e;
+}
+
+.settings-menu h3 {
+  margin: 0 0 10px;
+}
+
+.settings-auth {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body.dark .settings-auth {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+.auth-status {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.78;
+}
+
+.auth-btn {
+  margin-top: 8px;
+}
+
+.auth-login {
+  background: #4285f4;
+  color: #fff;
+}
+
+.auth-switch {
+  background: #3f8cff;
+  color: #fff;
+}
+
+.auth-logout {
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+}
+
+body.dark .auth-logout {
+  background: rgba(255, 255, 255, 0.14);
 }
 /* КАЛЕНДАРЬ */
 .calendar {

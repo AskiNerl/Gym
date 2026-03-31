@@ -13,6 +13,12 @@
 <div class="settings-menu" id="menu">
   <h3>Настройки</h3>
   <button onclick="toggleTheme()">🌙 / ☀️ Сменить тему</button>
+  <div class="settings-auth" id="settingsAuth">
+    <p class="auth-status" id="authStatus">Аккаунт: не подключен</p>
+    <button type="button" class="auth-btn auth-login" id="googleLoginBtn">Войти через Google</button>
+    <button type="button" class="auth-btn auth-switch" id="googleSwitchBtn" hidden>Сменить аккаунт</button>
+    <button type="button" class="auth-btn auth-logout" id="googleLogoutBtn" hidden>Выйти</button>
+  </div>
 </div>
 
 <div class="container">
@@ -81,7 +87,7 @@
   </div>
 </div>
 
-<div class="app-version">ALPHA 1.1.6 </div>
+<div class="app-version">ALPHA 1.2 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/script.js"></script>

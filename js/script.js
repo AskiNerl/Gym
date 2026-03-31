@@ -5,13 +5,11 @@
   "\u041f\u043e\u0434\u0442\u044f\u0433\u0438\u0432\u0430\u043d\u0438\u044f"
 ];
 
-// Fill these fields to enable cloud sync via Supabase.
-// stateId works as a shared project prefix, each user gets a personal suffix automatically.
+// Fill these fields to enable cloud sync via Supabase + Google login.
 const cloudConfig = {
   supabaseUrl: "https://fxolqlfezieggfwdvchp.supabase.co",
   supabaseAnonKey: "sb_publishable_557NYy_OYegz51oNV29ZJA_w_-USYi_",
-  stateTable: "workout_state",
-  stateId: "my-train-2026"
+  stateTable: "workout_state"
 };
 
 function createCloudClient() {
@@ -109,13 +107,13 @@ const cacheKeyPrefix = "/__tracker_store__/";
 let indexedDBOpenPromise = null;
 const cloudClient = createCloudClient();
 const cloudSyncKeys = new Set(["workouts", "exercises", "theme"]);
-const cloudProfileStorageKey = "__tracker_profile_id__";
 let cloudBootstrapDone = false;
 let cloudSyncTimer = null;
 let cloudSyncInProgress = false;
 let cloudSyncPending = false;
 let cloudSyncErrorShown = false;
-let cloudStateIdCache = "";
+let cloudUser = null;
+const cloudAuthPromptKey = "__google_auth_prompt_seen__";
 
 function openIndexedDB() {
   if (!("indexedDB" in window)) {
@@ -313,71 +311,161 @@ function bindSafariStorageAccessRequest() {
   document.addEventListener("touchend", requestOnGesture, { capture: true, passive: true });
 }
 
-function sanitizeStateSegment(value) {
-  if (typeof value !== "string") return "";
-  return value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+function getRedirectURL() {
+  return `${window.location.origin}${window.location.pathname}`;
 }
 
-function getCloudStatePrefix() {
-  return sanitizeStateSegment(cloudConfig.stateId) || "tracker";
+function getCloudStateId() {
+  if (!cloudUser || !cloudUser.id) return "";
+  return cloudUser.id;
 }
 
-function getDeviceIdentitySeed() {
-  let timezone = "";
+function getCloudUserLabel() {
+  if (!cloudUser) return "Аккаунт: не подключен";
+  if (cloudUser.email) return `Аккаунт: ${cloudUser.email}`;
+  return "Аккаунт: Google подключен";
+}
 
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  } catch (error) {
-    timezone = "";
+function updateCloudAuthUI() {
+  let statusNode = document.getElementById("authStatus");
+  let loginBtn = document.getElementById("googleLoginBtn");
+  let switchBtn = document.getElementById("googleSwitchBtn");
+  let logoutBtn = document.getElementById("googleLogoutBtn");
+  if (!statusNode || !loginBtn || !switchBtn || !logoutBtn) return;
+
+  if (!isCloudEnabled()) {
+    statusNode.textContent = "Облако: не настроено";
+    loginBtn.hidden = true;
+    switchBtn.hidden = true;
+    logoutBtn.hidden = true;
+    return;
   }
 
-  let screenSize = "";
-  if (window.screen) {
-    let minSide = Math.min(window.screen.width, window.screen.height);
-    let maxSide = Math.max(window.screen.width, window.screen.height);
-    screenSize = `${minSide}x${maxSide}`;
+  statusNode.textContent = getCloudUserLabel();
+  loginBtn.hidden = cloudUser !== null;
+  switchBtn.hidden = cloudUser === null;
+  logoutBtn.hidden = cloudUser === null;
+}
+
+function showFirstLoginHint() {
+  if (!isCloudEnabled()) return;
+  if (cloudUser) return;
+  if (getStoredValue(cloudAuthPromptKey) === "1") return;
+
+  setStoredValue(cloudAuthPromptKey, "1");
+  openNoticeModal("Чтобы данные сохранялись в облаке, зайди через Google в настройках.");
+}
+
+async function signInWithGoogle(forceSelectAccount = false) {
+  if (!isCloudEnabled()) return;
+
+  let options = {
+    redirectTo: getRedirectURL()
+  };
+
+  if (forceSelectAccount) {
+    options.queryParams = { prompt: "select_account" };
   }
 
-  return [
-    navigator.userAgent || "",
-    navigator.language || "",
-    navigator.platform || "",
-    navigator.vendor || "",
-    screenSize,
-    String(window.devicePixelRatio || ""),
-    timezone
-  ].join("|");
+  let { error } = await cloudClient.auth.signInWithOAuth({
+    provider: "google",
+    options
+  });
+
+  if (error) {
+    openNoticeModal("Не удалось войти через Google. Попробуй снова.");
+  }
 }
 
-function hashString(value) {
-  let hash = 2166136261;
+async function signOutCloud() {
+  if (!isCloudEnabled()) return;
 
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  let { error } = await cloudClient.auth.signOut();
+  if (error) {
+    openNoticeModal("Не удалось выйти из аккаунта Google.");
+    return;
   }
 
-  return (hash >>> 0).toString(36);
+  cloudBootstrapDone = false;
+  cloudUser = null;
+  updateCloudAuthUI();
+  showFirstLoginHint();
 }
 
-function generateProfileId() {
-  return `d${hashString(getDeviceIdentitySeed())}`;
+function applyStateToUI() {
+  normalizeStoredWorkouts();
+  ensureRequiredExercises();
+  loadExercises(document.getElementById("exerciseSelect").value);
+  updateWeightMode();
+  render();
+  renderCalendar();
 }
 
-function buildCloudStateId(profileId) {
-  let prefix = getCloudStatePrefix();
-  return `${prefix}__${profileId}`;
+function resetStateForNewCloudUser() {
+  workouts = [];
+  exercises = defaultExercises.slice();
+  setStoredJSON("workouts", workouts);
+  setStoredJSON("exercises", exercises);
+  applyStateToUI();
 }
 
-function ensureCloudStateId() {
-  if (cloudStateIdCache) return cloudStateIdCache;
+function bindCloudAuthControls() {
+  let loginBtn = document.getElementById("googleLoginBtn");
+  let switchBtn = document.getElementById("googleSwitchBtn");
+  let logoutBtn = document.getElementById("googleLogoutBtn");
+  if (!loginBtn || !switchBtn || !logoutBtn) return;
 
-  let storedProfileId = sanitizeStateSegment(getStoredValue(cloudProfileStorageKey));
-  let profileId = storedProfileId || generateProfileId();
+  loginBtn.addEventListener("click", () => {
+    signInWithGoogle(false);
+  });
 
-  persistRawToAllStores(cloudProfileStorageKey, profileId);
-  cloudStateIdCache = buildCloudStateId(profileId);
-  return cloudStateIdCache;
+  switchBtn.addEventListener("click", () => {
+    signInWithGoogle(true);
+  });
+
+  logoutBtn.addEventListener("click", () => {
+    signOutCloud();
+  });
+
+  updateCloudAuthUI();
+}
+
+async function bootstrapCloudAuth() {
+  if (!isCloudEnabled()) {
+    cloudBootstrapDone = true;
+    updateCloudAuthUI();
+    return;
+  }
+
+  let sessionResult = await cloudClient.auth.getSession();
+  let sessionData = sessionResult && sessionResult.data ? sessionResult.data : null;
+  let session = sessionData ? sessionData.session : null;
+  cloudUser = session ? session.user : null;
+  updateCloudAuthUI();
+
+  if (cloudUser) {
+    await bootstrapCloudState();
+  } else {
+    cloudBootstrapDone = true;
+    showFirstLoginHint();
+  }
+
+  cloudClient.auth.onAuthStateChange((event, nextSession) => {
+    let nextUser = nextSession ? nextSession.user : null;
+
+    cloudUser = nextUser;
+    cloudBootstrapDone = false;
+    cloudSyncErrorShown = false;
+    updateCloudAuthUI();
+
+    if (!cloudUser) {
+      cloudBootstrapDone = true;
+      showFirstLoginHint();
+      return;
+    }
+
+    bootstrapCloudState().catch(() => {});
+  });
 }
 
 function isCloudEnabled() {
@@ -388,8 +476,32 @@ function getCurrentThemeValue() {
   return document.body.classList.contains("dark") ? "dark" : "light";
 }
 
+function isCloudAuthError(error) {
+  if (!error) return false;
+
+  let status = Number(error.status || 0);
+  let message = String(error.message || "").toLowerCase();
+  let details = String(error.details || "").toLowerCase();
+  let hint = String(error.hint || "").toLowerCase();
+  let text = `${message} ${details} ${hint}`;
+
+  if (status === 401 || status === 403) return true;
+  if (text.includes("jwt")) return true;
+  if (text.includes("permission denied")) return true;
+  if (text.includes("not authenticated")) return true;
+
+  return false;
+}
+
+function getCloudErrorDetails(error) {
+  if (!error) return "Без деталей";
+  if (error.message) return error.message;
+  return "Неизвестная ошибка";
+}
+
 async function runCloudSync() {
   if (!isCloudEnabled()) return;
+  if (!cloudUser) return;
   if (!cloudBootstrapDone) return;
   if (cloudSyncInProgress) {
     cloudSyncPending = true;
@@ -400,7 +512,9 @@ async function runCloudSync() {
   cloudSyncPending = false;
 
   try {
-    let cloudStateId = ensureCloudStateId();
+    let cloudStateId = getCloudStateId();
+    if (!cloudStateId) return;
+
     let payload = {
       id: cloudStateId,
       workouts,
@@ -433,6 +547,7 @@ async function runCloudSync() {
 function scheduleCloudSync(key) {
   if (!cloudSyncKeys.has(key)) return;
   if (!isCloudEnabled()) return;
+  if (!cloudUser) return;
   if (!cloudBootstrapDone) return;
 
   clearTimeout(cloudSyncTimer);
@@ -443,20 +558,59 @@ function scheduleCloudSync(key) {
 
 async function bootstrapCloudState() {
   if (!isCloudEnabled()) return;
+  if (!cloudUser) {
+    cloudBootstrapDone = true;
+    return;
+  }
 
   try {
-    let cloudStateId = ensureCloudStateId();
+    let cloudStateId = getCloudStateId();
+    if (!cloudStateId) {
+      cloudBootstrapDone = true;
+      return;
+    }
+
     let { data, error } = await cloudClient
       .from(cloudConfig.stateTable)
       .select("id, workouts, exercises, theme")
       .eq("id", cloudStateId)
       .maybeSingle();
 
+    if (error && isCloudAuthError(error)) {
+      let refreshResult = await cloudClient.auth.refreshSession();
+      let refreshData = refreshResult && refreshResult.data ? refreshResult.data : null;
+      let refreshedSession = refreshData ? refreshData.session : null;
+
+      if (refreshedSession && refreshedSession.user) {
+        cloudUser = refreshedSession.user;
+        cloudStateId = getCloudStateId();
+
+        let retryResult = await cloudClient
+          .from(cloudConfig.stateTable)
+          .select("id, workouts, exercises, theme")
+          .eq("id", cloudStateId)
+          .maybeSingle();
+
+        data = retryResult.data;
+        error = retryResult.error;
+      }
+    }
+
     if (error) {
       cloudBootstrapDone = true;
+
+      if (isCloudAuthError(error)) {
+        await cloudClient.auth.signOut();
+        cloudUser = null;
+        updateCloudAuthUI();
+        openNoticeModal("Сессия Google истекла. Нажми «Войти через Google» в настройках.");
+        showFirstLoginHint();
+        return;
+      }
+
       if (!cloudSyncErrorShown) {
         cloudSyncErrorShown = true;
-        openNoticeModal("Не удалось загрузить облачные данные. Проверь таблицу и ключи Supabase.");
+        openNoticeModal(`Не удалось загрузить облачные данные: ${getCloudErrorDetails(error)}`);
       }
       return;
     }
@@ -467,34 +621,19 @@ async function bootstrapCloudState() {
     let hasCloudState = cloudWorkouts.length > 0 || cloudExercises.length > 0 || cloudTheme === "dark" || cloudTheme === "light";
 
     if (hasCloudState) {
-      let useCloudWorkouts = cloudWorkouts.length > workouts.length;
-      if (useCloudWorkouts) {
-        workouts = cloudWorkouts;
-        persistRawToAllStores("workouts", JSON.stringify(workouts));
-      }
-
-      let useCloudExercises = cloudExercises.length > exercises.length;
-      if (!useCloudExercises && cloudExercises.length > 0) {
-        useCloudExercises = !hasCustomExercises(exercises) && hasCustomExercises(cloudExercises);
-      }
-
-      if (useCloudExercises) {
-        exercises = cloudExercises;
-        persistRawToAllStores("exercises", JSON.stringify(exercises));
-      }
+      workouts = cloudWorkouts;
+      exercises = cloudExercises.length ? cloudExercises : defaultExercises.slice();
+      persistRawToAllStores("workouts", JSON.stringify(workouts));
+      persistRawToAllStores("exercises", JSON.stringify(exercises));
 
       if (cloudTheme === "dark" || cloudTheme === "light") {
         applyTheme(cloudTheme);
         persistRawToAllStores("theme", cloudTheme);
       }
 
-      normalizeStoredWorkouts();
-      ensureRequiredExercises();
-      loadExercises(document.getElementById("exerciseSelect").value);
-      updateWeightMode();
-      render();
-      renderCalendar();
+      applyStateToUI();
     } else {
+      resetStateForNewCloudUser();
       cloudBootstrapDone = true;
       await runCloudSync();
       return;
@@ -1441,6 +1580,7 @@ bindExerciseControls();
 bindDeleteModal();
 bindNoticeModal();
 bindSettingsControls();
+bindCloudAuthControls();
 bindMobileZoomLock();
 updateWeightMode();
 render();
@@ -1525,5 +1665,5 @@ renderCalendar();
 hydrateFromIndexedDB()
   .catch(() => {})
   .finally(() => {
-    bootstrapCloudState().catch(() => {});
+    bootstrapCloudAuth().catch(() => {});
   });
