@@ -455,7 +455,7 @@ body.modal-open {
 .confirm-modal {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 3200;
   display: flex;
   align-items: center;
   justify-content: center;

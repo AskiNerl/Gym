@@ -113,6 +113,7 @@ let cloudSyncInProgress = false;
 let cloudSyncPending = false;
 let cloudSyncErrorShown = false;
 let cloudUser = null;
+let cloudSignInPending = false;
 const cloudAuthPromptKey = "__google_auth_prompt_seen__";
 
 function openIndexedDB() {
@@ -345,6 +346,9 @@ function updateCloudAuthUI() {
   loginBtn.hidden = cloudUser !== null;
   switchBtn.hidden = cloudUser === null;
   logoutBtn.hidden = cloudUser === null;
+  loginBtn.disabled = cloudSignInPending;
+  switchBtn.disabled = cloudSignInPending;
+  logoutBtn.disabled = cloudSignInPending;
 }
 
 function showFirstLoginHint() {
@@ -358,32 +362,54 @@ function showFirstLoginHint() {
 
 async function signInWithGoogle(forceSelectAccount = false) {
   if (!isCloudEnabled()) return;
+  if (cloudSignInPending) return;
 
-  let options = {
-    redirectTo: getRedirectURL()
-  };
+  cloudSignInPending = true;
+  updateCloudAuthUI();
 
-  if (forceSelectAccount) {
-    options.queryParams = { prompt: "select_account" };
-  }
+  try {
+    closeSettingsMenu();
 
-  let { error } = await cloudClient.auth.signInWithOAuth({
-    provider: "google",
-    options
-  });
+    let options = {
+      redirectTo: getRedirectURL()
+    };
 
-  if (error) {
-    openNoticeModal("Не удалось войти через Google. Попробуй снова.");
+    if (forceSelectAccount) {
+      options.queryParams = { prompt: "select_account" };
+    }
+
+    let { data, error } = await cloudClient.auth.signInWithOAuth({
+      provider: "google",
+      options
+    });
+
+    if (error) {
+      openNoticeModal(`Не удалось войти через Google: ${getCloudErrorDetails(error)}`);
+      return;
+    }
+
+    if (data && data.url) {
+      window.location.assign(data.url);
+      return;
+    }
+
+    openNoticeModal("Не удалось открыть страницу Google входа. Проверь Redirect URL в Supabase.");
+  } catch (error) {
+    openNoticeModal(`Не удалось войти через Google: ${getCloudErrorDetails(error)}`);
+  } finally {
+    cloudSignInPending = false;
+    updateCloudAuthUI();
   }
 }
 
 async function signOutCloud() {
   if (!isCloudEnabled()) return;
 
-  let { error } = await cloudClient.auth.signOut();
-  if (error) {
-    openNoticeModal("Не удалось выйти из аккаунта Google.");
-    return;
+  try {
+    closeSettingsMenu();
+    await cloudClient.auth.signOut({ scope: "local" });
+  } catch (error) {
+    // Continue clearing local state even if remote signout fails.
   }
 
   cloudBootstrapDone = false;
@@ -415,15 +441,24 @@ function bindCloudAuthControls() {
   let logoutBtn = document.getElementById("googleLogoutBtn");
   if (!loginBtn || !switchBtn || !logoutBtn) return;
 
-  loginBtn.addEventListener("click", () => {
+  loginBtn.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeExercisePicker();
     signInWithGoogle(false);
   });
 
-  switchBtn.addEventListener("click", () => {
+  switchBtn.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeExercisePicker();
     signInWithGoogle(true);
   });
 
-  logoutBtn.addEventListener("click", () => {
+  logoutBtn.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeExercisePicker();
     signOutCloud();
   });
 
@@ -437,10 +472,15 @@ async function bootstrapCloudAuth() {
     return;
   }
 
-  let sessionResult = await cloudClient.auth.getSession();
-  let sessionData = sessionResult && sessionResult.data ? sessionResult.data : null;
-  let session = sessionData ? sessionData.session : null;
-  cloudUser = session ? session.user : null;
+  try {
+    let sessionResult = await cloudClient.auth.getSession();
+    let sessionData = sessionResult && sessionResult.data ? sessionResult.data : null;
+    let session = sessionData ? sessionData.session : null;
+    cloudUser = session ? session.user : null;
+  } catch (error) {
+    cloudUser = null;
+  }
+
   updateCloudAuthUI();
 
   if (cloudUser) {
@@ -600,7 +640,11 @@ async function bootstrapCloudState() {
       cloudBootstrapDone = true;
 
       if (isCloudAuthError(error)) {
-        await cloudClient.auth.signOut();
+        try {
+          await cloudClient.auth.signOut({ scope: "local" });
+        } catch (signOutError) {
+          // Ignore and continue with local reset.
+        }
         cloudUser = null;
         updateCloudAuthUI();
         openNoticeModal("Сессия Google истекла. Нажми «Войти через Google» в настройках.");
@@ -1331,6 +1375,7 @@ function openDeleteModal(index) {
   let weightLabel = formatWorkoutWeight(workout);
   text.textContent = `${dateForDisplay} - ${workout.exercise}: ${weightLabel} (${workout.sets} \u043f\u043e\u0434\u0445\u043e\u0434\u043e\u0432)`;
 
+  closeSettingsMenu();
   modal.hidden = false;
   syncModalBodyState();
 }
@@ -1342,6 +1387,7 @@ function openNoticeModal(message, title = "Ошибка") {
 
   titleNode.textContent = title;
   textNode.textContent = message;
+  closeSettingsMenu();
   modal.hidden = false;
   syncModalBodyState();
 }
@@ -1561,7 +1607,14 @@ function bindSystemThemeSync() {
 
 function toggleMenu() {
   let menu = document.getElementById("menu");
+  if (!menu) return;
   menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+function closeSettingsMenu() {
+  let menu = document.getElementById("menu");
+  if (!menu) return;
+  menu.style.display = "none";
 }
 
 let currentDate = new Date();
