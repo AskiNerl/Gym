@@ -79,6 +79,8 @@ function createStorage() {
 const storage = createStorage();
 const indexedDBName = "workout-tracker-db";
 const indexedDBStoreName = "app-data";
+const cacheStorageName = "workout-tracker-state-v1";
+const cacheKeyPrefix = "/__tracker_store__/";
 let indexedDBOpenPromise = null;
 
 function openIndexedDB() {
@@ -169,6 +171,69 @@ function persistToIndexedDB(key, value) {
   setIndexedDBValue(key, value).catch(() => {});
 }
 
+function openStateCache() {
+  if (!("caches" in window)) {
+    return Promise.resolve(null);
+  }
+
+  return caches.open(cacheStorageName).catch(() => null);
+}
+
+function toCacheRequestURL(key) {
+  return `${cacheKeyPrefix}${encodeURIComponent(key)}`;
+}
+
+function getCacheValue(key) {
+  return openStateCache().then(cache => new Promise(resolve => {
+    if (!cache) {
+      resolve(null);
+      return;
+    }
+
+    cache.match(toCacheRequestURL(key)).then(response => {
+      if (!response) {
+        resolve(null);
+        return;
+      }
+
+      response.text().then(text => resolve(text)).catch(() => resolve(null));
+    }).catch(() => resolve(null));
+  }));
+}
+
+function setCacheValue(key, value) {
+  return openStateCache().then(cache => new Promise(resolve => {
+    if (!cache) {
+      resolve(false);
+      return;
+    }
+
+    try {
+      let response = new Response(value, {
+        headers: { "Content-Type": "text/plain;charset=utf-8" }
+      });
+
+      cache.put(toCacheRequestURL(key), response).then(() => {
+        resolve(true);
+      }).catch(() => {
+        resolve(false);
+      });
+    } catch (error) {
+      resolve(false);
+    }
+  }));
+}
+
+function persistToCache(key, value) {
+  setCacheValue(key, value).catch(() => {});
+}
+
+function persistRawToAllStores(key, value) {
+  storage.setItem(key, value);
+  persistToIndexedDB(key, value);
+  persistToCache(key, value);
+}
+
 function requestPersistentStorage() {
   if (!navigator.storage || typeof navigator.storage.persist !== "function") {
     return;
@@ -203,14 +268,12 @@ function getStoredArray(key, fallback) {
 }
 
 function setStoredValue(key, value) {
-  storage.setItem(key, value);
-  persistToIndexedDB(key, value);
+  persistRawToAllStores(key, value);
 }
 
 function setStoredJSON(key, value) {
   let jsonValue = JSON.stringify(value);
-  storage.setItem(key, jsonValue);
-  persistToIndexedDB(key, jsonValue);
+  persistRawToAllStores(key, jsonValue);
 }
 
 let workouts = getStoredArray("workouts", []);
@@ -275,50 +338,66 @@ function seedIndexedDBFromSyncStorage() {
 
   if (workoutsRaw !== null) {
     persistToIndexedDB("workouts", workoutsRaw);
+    persistToCache("workouts", workoutsRaw);
   }
 
   if (exercisesRaw !== null) {
     persistToIndexedDB("exercises", exercisesRaw);
+    persistToCache("exercises", exercisesRaw);
   }
 
   if (themeRaw !== null) {
     persistToIndexedDB("theme", themeRaw);
+    persistToCache("theme", themeRaw);
   }
 }
 
 async function hydrateFromIndexedDB() {
-  let [workoutsRaw, exercisesRaw, themeRaw] = await Promise.all([
+  let [workoutsRawIDB, exercisesRawIDB, themeRawIDB, workoutsRawCache, exercisesRawCache, themeRawCache] = await Promise.all([
     getIndexedDBValue("workouts"),
     getIndexedDBValue("exercises"),
-    getIndexedDBValue("theme")
+    getIndexedDBValue("theme"),
+    getCacheValue("workouts"),
+    getCacheValue("exercises"),
+    getCacheValue("theme")
   ]);
 
-  let workoutsFromDB = parseArrayFromRawStorage(workoutsRaw);
-  let exercisesFromDB = parseArrayFromRawStorage(exercisesRaw);
+  let workoutsFromIDB = parseArrayFromRawStorage(workoutsRawIDB);
+  let workoutsFromCache = parseArrayFromRawStorage(workoutsRawCache);
+  let exercisesFromIDB = parseArrayFromRawStorage(exercisesRawIDB);
+  let exercisesFromCache = parseArrayFromRawStorage(exercisesRawCache);
+  let workoutsFromBackup = workoutsFromIDB.length >= workoutsFromCache.length ? workoutsFromIDB : workoutsFromCache;
+
+  let exercisesFromBackup = exercisesFromIDB.length >= exercisesFromCache.length ? exercisesFromIDB : exercisesFromCache;
+  if (!exercisesFromBackup.length && exercisesFromCache.length) {
+    exercisesFromBackup = exercisesFromCache;
+  }
+
   let changed = false;
 
-  if (workoutsFromDB.length > workouts.length) {
-    workouts = workoutsFromDB.slice();
-    storage.setItem("workouts", JSON.stringify(workouts));
+  if (workoutsFromBackup.length > workouts.length) {
+    workouts = workoutsFromBackup.slice();
+    persistRawToAllStores("workouts", JSON.stringify(workouts));
     changed = true;
   }
 
-  let useDBExercises = exercisesFromDB.length > exercises.length;
-  if (!useDBExercises && exercisesFromDB.length) {
-    useDBExercises = !hasCustomExercises(exercises) && hasCustomExercises(exercisesFromDB);
+  let useBackupExercises = exercisesFromBackup.length > exercises.length;
+  if (!useBackupExercises && exercisesFromBackup.length) {
+    useBackupExercises = !hasCustomExercises(exercises) && hasCustomExercises(exercisesFromBackup);
   }
 
-  if (useDBExercises) {
-    exercises = exercisesFromDB.slice();
-    storage.setItem("exercises", JSON.stringify(exercises));
+  if (useBackupExercises) {
+    exercises = exercisesFromBackup.slice();
+    persistRawToAllStores("exercises", JSON.stringify(exercises));
     changed = true;
   }
 
+  let themeRaw = themeRawIDB === "dark" || themeRawIDB === "light" ? themeRawIDB : themeRawCache;
   if (themeRaw === "dark" || themeRaw === "light") {
     let savedTheme = getStoredValue("theme");
     if (savedTheme !== "dark" && savedTheme !== "light") {
       applyTheme(themeRaw);
-      storage.setItem("theme", themeRaw);
+      persistRawToAllStores("theme", themeRaw);
     }
   }
 
